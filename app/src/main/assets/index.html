@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>SafeField</title>
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="app.css?v=20251206-ptfix2">
 </head>
 <body>
   <header>
@@ -21,7 +21,14 @@
     <button data-nav="dashboard" onclick="dashboard()"><span class="navico">D</span><span>Painel</span></button>
   </nav>
 
-  <script src="app.js"></script>
-  <script src="pt.js"></script>
+  <script src="app.js?v=20251206-ptfix2"></script>
+  <script src="pt.js?v=20251206-ptfix2"></script>
+  <script>
+    const legacyOpenModule = window.openModule;
+    window.openModule = function(moduleName) {
+      if (moduleName === 'PT') return window.openPT();
+      return legacyOpenModule(moduleName);
+    };
+  </script>
 </body>
 </html>
