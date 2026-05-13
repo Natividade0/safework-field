@@ -4,31 +4,34 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>SafeField</title>
-  <link rel="stylesheet" href="app.css?v=20251206-ptfix2">
+  <link rel="stylesheet" href="app.css?v=20251206-shell1">
 </head>
 <body>
   <header>
-    <h1>SafeField</h1>
-    <div class="small">Segurança do Trabalho em campo · Industrial Premium Dark</div>
+    <button class="menu-btn" onclick="shellToggleMenu()">☰</button>
+    <div>
+      <h1>SafeField</h1>
+      <div class="small">Segurança do Trabalho em campo · tela cheia</div>
+    </div>
   </header>
+
+  <aside class="side-menu">
+    <button onclick="home()">Menu inicial</button>
+    <button onclick="openModule('APR')">APR</button>
+    <button onclick="openModule('PT')">Permissão de Trabalho</button>
+    <button onclick="openModule('DDS')">DDS</button>
+    <button onclick="openModule('EPI')">EPI</button>
+    <button onclick="openModule('Inspeção')">Inspeção</button>
+    <button onclick="openModule('Ocorrência')">Ocorrência</button>
+    <button onclick="openModule('Colaboradores')">Colaboradores</button>
+    <button onclick="openModule('Dashboard')">Dashboard</button>
+  </aside>
+  <div class="menu-backdrop" onclick="shellToggleMenu()"></div>
 
   <section id="app" class="screen"></section>
 
-  <nav class="bottom">
-    <button class="active" data-nav="home" onclick="home()"><span class="navico">M</span><span>Menu</span></button>
-    <button data-nav="apr" onclick="openModule('APR')"><span class="navico">A</span><span>APR</span></button>
-    <button data-nav="pt" onclick="openPT()"><span class="navico">P</span><span>PT</span></button>
-    <button data-nav="dashboard" onclick="dashboard()"><span class="navico">D</span><span>Painel</span></button>
-  </nav>
-
-  <script src="app.js?v=20251206-ptfix2"></script>
-  <script src="pt.js?v=20251206-ptfix2"></script>
-  <script>
-    const legacyOpenModule = window.openModule;
-    window.openModule = function(moduleName) {
-      if (moduleName === 'PT') return window.openPT();
-      return legacyOpenModule(moduleName);
-    };
-  </script>
+  <script src="app.js?v=20251206-shell1"></script>
+  <script src="pt.js?v=20251206-shell1"></script>
+  <script src="app-shell.js?v=20251206-shell1"></script>
 </body>
 </html>
