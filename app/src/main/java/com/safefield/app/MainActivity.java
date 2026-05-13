@@ -15,12 +15,14 @@ import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
 import android.provider.MediaStore;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -132,6 +134,7 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    Toast.makeText(MainActivity.this, "Gerando PDF...", Toast.LENGTH_SHORT).show();
                     createPdfAndShare(html, fileName);
                 }
             });
@@ -146,7 +149,11 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(false);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
+        settings.setLoadWithOverviewMode(true);
+        settings.setUseWideViewPort(true);
         pdfWebView.setBackgroundColor(Color.WHITE);
+        pdfWebView.setVisibility(View.INVISIBLE);
+        addContentView(pdfWebView, new ViewGroup.LayoutParams(1240, 1754));
 
         pdfWebView.setWebViewClient(new WebViewClient() {
             @Override
@@ -156,21 +163,27 @@ public class MainActivity extends Activity {
                     public void run() {
                         try {
                             writeWebViewToPdf(view, pdfFile);
+                            try {
+                                ViewGroup parent = (ViewGroup) view.getParent();
+                                if (parent != null) parent.removeView(view);
+                            } catch (Exception ignored) {}
                             sharePdfFile(pdfFile);
-                        } catch (Exception ignored) {
+                        } catch (Exception e) {
+                            Toast.makeText(MainActivity.this, "Erro ao gerar PDF: " + e.getMessage(), Toast.LENGTH_LONG).show();
                         }
                     }
-                }, 600);
+                }, 1200);
             }
         });
 
-        pdfWebView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+        pdfWebView.loadDataWithBaseURL("file:///android_asset/", html, "text/html", "UTF-8", null);
     }
 
     private void writeWebViewToPdf(WebView view, File pdfFile) throws IOException {
         int pageWidth = 1240;
         int pageHeight = 1754;
         int contentHeight = (int) (view.getContentHeight() * view.getScale());
+        if (contentHeight <= 0) contentHeight = view.getMeasuredHeight();
         if (contentHeight < pageHeight) contentHeight = pageHeight;
 
         view.measure(
@@ -180,22 +193,25 @@ public class MainActivity extends Activity {
         view.layout(0, 0, pageWidth, contentHeight);
 
         PdfDocument document = new PdfDocument();
-        int pageNumber = 1;
-        for (int top = 0; top < contentHeight; top += pageHeight) {
-            PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create();
-            PdfDocument.Page page = document.startPage(pageInfo);
-            Canvas canvas = page.getCanvas();
-            canvas.drawColor(Color.WHITE);
-            canvas.translate(0, -top);
-            view.draw(canvas);
-            document.finishPage(page);
-            pageNumber++;
+        FileOutputStream out = null;
+        try {
+            int pageNumber = 1;
+            for (int top = 0; top < contentHeight; top += pageHeight) {
+                PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create();
+                PdfDocument.Page page = document.startPage(pageInfo);
+                Canvas canvas = page.getCanvas();
+                canvas.drawColor(Color.WHITE);
+                canvas.translate(0, -top);
+                view.draw(canvas);
+                document.finishPage(page);
+                pageNumber++;
+            }
+            out = new FileOutputStream(pdfFile);
+            document.writeTo(out);
+        } finally {
+            if (out != null) out.close();
+            document.close();
         }
-
-        FileOutputStream out = new FileOutputStream(pdfFile);
-        document.writeTo(out);
-        out.close();
-        document.close();
     }
 
     private String sanitizeFileName(String name) {
@@ -203,6 +219,10 @@ public class MainActivity extends Activity {
     }
 
     private void sharePdfFile(File pdfFile) {
+        if (!pdfFile.exists() || pdfFile.length() == 0) {
+            Toast.makeText(this, "PDF não foi gerado.", Toast.LENGTH_LONG).show();
+            return;
+        }
         Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", pdfFile);
         Intent shareIntent = new Intent(Intent.ACTION_SEND);
         shareIntent.setType("application/pdf");
