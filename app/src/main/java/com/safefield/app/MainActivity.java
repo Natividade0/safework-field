@@ -5,16 +5,16 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.pdf.PdfDocument;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.CancellationSignal;
-import android.os.ParcelFileDescriptor;
-import android.print.PageRange;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
-import android.print.PrintDocumentInfo;
 import android.print.PrintManager;
 import android.provider.MediaStore;
+import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -27,6 +27,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -116,7 +117,12 @@ public class MainActivity extends Activity {
                     if (printManager == null) return;
                     String jobName = "SafeField_PT_" + new SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(new Date());
                     PrintDocumentAdapter adapter = webView.createPrintDocumentAdapter(jobName);
-                    printManager.print(jobName, adapter, getPdfAttributes());
+                    PrintAttributes attributes = new PrintAttributes.Builder()
+                            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                            .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                            .build();
+                    printManager.print(jobName, adapter, attributes);
                 }
             });
         }
@@ -132,14 +138,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    private PrintAttributes getPdfAttributes() {
-        return new PrintAttributes.Builder()
-                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
-                .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
-                .build();
-    }
-
     private void createPdfAndShare(String html, String rawFileName) {
         final String cleanName = sanitizeFileName(rawFileName == null || rawFileName.trim().isEmpty() ? "SafeField_PT" : rawFileName);
         final File pdfFile = new File(getCacheDir(), cleanName + ".pdf");
@@ -148,37 +146,56 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(false);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
+        pdfWebView.setBackgroundColor(Color.WHITE);
 
         pdfWebView.setWebViewClient(new WebViewClient() {
             @Override
-            public void onPageFinished(WebView view, String url) {
-                final PrintDocumentAdapter adapter = view.createPrintDocumentAdapter(cleanName);
-                final PrintAttributes attrs = getPdfAttributes();
-                try {
-                    final ParcelFileDescriptor pfd = ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_CREATE | ParcelFileDescriptor.MODE_TRUNCATE | ParcelFileDescriptor.MODE_READ_WRITE);
-                    adapter.onLayout(null, attrs, new CancellationSignal(), new PrintDocumentAdapter.LayoutResultCallback() {
-                        @Override
-                        public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
-                            adapter.onWrite(new PageRange[]{PageRange.ALL_PAGES}, pfd, new CancellationSignal(), new PrintDocumentAdapter.WriteResultCallback() {
-                                @Override
-                                public void onWriteFinished(PageRange[] pages) {
-                                    try { pfd.close(); } catch (IOException ignored) {}
-                                    sharePdfFile(pdfFile);
-                                }
-
-                                @Override
-                                public void onWriteFailed(CharSequence error) {
-                                    try { pfd.close(); } catch (IOException ignored) {}
-                                }
-                            });
+            public void onPageFinished(final WebView view, String url) {
+                view.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            writeWebViewToPdf(view, pdfFile);
+                            sharePdfFile(pdfFile);
+                        } catch (Exception ignored) {
                         }
-                    }, new Bundle());
-                } catch (Exception ignored) {
-                }
+                    }
+                }, 600);
             }
         });
 
         pdfWebView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+    }
+
+    private void writeWebViewToPdf(WebView view, File pdfFile) throws IOException {
+        int pageWidth = 1240;
+        int pageHeight = 1754;
+        int contentHeight = (int) (view.getContentHeight() * view.getScale());
+        if (contentHeight < pageHeight) contentHeight = pageHeight;
+
+        view.measure(
+                View.MeasureSpec.makeMeasureSpec(pageWidth, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(contentHeight, View.MeasureSpec.EXACTLY)
+        );
+        view.layout(0, 0, pageWidth, contentHeight);
+
+        PdfDocument document = new PdfDocument();
+        int pageNumber = 1;
+        for (int top = 0; top < contentHeight; top += pageHeight) {
+            PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create();
+            PdfDocument.Page page = document.startPage(pageInfo);
+            Canvas canvas = page.getCanvas();
+            canvas.drawColor(Color.WHITE);
+            canvas.translate(0, -top);
+            view.draw(canvas);
+            document.finishPage(page);
+            pageNumber++;
+        }
+
+        FileOutputStream out = new FileOutputStream(pdfFile);
+        document.writeTo(out);
+        out.close();
+        document.close();
     }
 
     private String sanitizeFileName(String name) {
