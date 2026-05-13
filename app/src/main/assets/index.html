@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SafeField</title>
+<style>
+body{margin:0;background:#0F1117;color:#F9FAFB;font-family:Arial,sans-serif}header{padding:16px;border-bottom:1px solid #374151;position:sticky;top:0;background:#0F1117}h1{margin:0;color:#F59E0B}.screen{padding:16px 16px 86px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card,button,input,textarea,select{border-radius:16px}button{min-height:56px;border:0;background:#374151;color:#fff;font-weight:800;padding:12px}.card{background:#171B24;border:1px solid #374151;padding:14px}.card b{display:block;font-size:20px;color:#F59E0B}input,textarea,select{width:100%;padding:14px;margin:8px 0 14px;background:#111827;border:1px solid #374151;color:#fff;box-sizing:border-box}.primary{background:#F59E0B;color:#111827;width:100%;font-size:18px}.bottom{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#0F1117;border-top:1px solid #374151;padding:8px}.bottom button{font-size:12px;min-height:54px}.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}.kpis div{background:#151923;padding:14px;border-radius:16px;border:1px solid #374151}.kpis b{font-size:28px;color:#F59E0B}.item{background:#151923;border:1px solid #374151;border-radius:16px;padding:12px;margin:10px 0}.small{color:#9CA3AF;font-size:12px}canvas{background:#0B0D12;border:1px dashed #6B7280;border-radius:16px;width:100%;height:140px;touch-action:none}</style>
+</head>
+<body>
+<header><h1>SafeField</h1><div class="small">Segurança do Trabalho em campo - modo Android</div></header>
+<section id="app" class="screen"></section>
+<nav class="bottom"><button onclick="home()">Menu</button><button onclick="form('APR')">APR</button><button onclick="form('PT')">PT</button><button onclick="dashboard()">Painel</button></nav>
+<script>
+const app=document.getElementById('app');
+const types=['Altura','Espaço confinado','Elétrico','Escavação','Içamento','Obra civil','Trabalho a quente','LOTO'];
+const hazards={Altura:['Queda de nível diferente - cinto, talabarte, ancoragem e inspeção','Queda de materiais - isolamento e amarração de ferramentas'],Escavação:['Soterramento - escoramento, talude e isolamento','Interferências subterrâneas - checar projetos'],Elétrico:['Choque elétrico - bloqueio, teste e ferramenta isolada'],LOTO:['Partida inesperada - bloqueio individual e teste energia zero']};
+function data(){return JSON.parse(localStorage.getItem('sf_records')||'[]')}
+function saveData(d){localStorage.setItem('sf_records',JSON.stringify(d))}
+function id(t){return t+'-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+Math.random().toString(36).slice(2,6).toUpperCase()}
+function home(){app.innerHTML='<div class="grid">'+['APR','PT','DDS','EPI','Inspeção','Ocorrência','Colaboradores','Dashboard'].map(x=>'<button class="card" onclick="'+(x==='Dashboard'?'dashboard()':'form(\''+x+'\')')+'"><b>'+x+'</b><span class="small">Abrir módulo</span></button>').join('')+'</div>'}
+function form(mod){app.innerHTML='<h2>'+mod+'</h2><label>Tipo</label><select id="tipo">'+types.map(t=>'<option>'+t+'</option>').join('')+'</select><label>Descrição / atividade</label><input id="desc" placeholder="Ex.: montagem de andaime"><label>Local / frente</label><input id="local" placeholder="Ex.: pipe rack setor B"><label>Responsável</label><input id="resp" placeholder="Nome do TST ou encarregado"><label>Equipe / colaborador</label><input id="colab"><label>Observações</label><textarea id="obs"></textarea><div class="card"><b>Assinatura</b><canvas id="sig" width="600" height="180"></canvas><button onclick="clearSig()">Limpar assinatura</button></div><button class="primary" onclick="saveRecord(\''+mod+'\')">Salvar offline</button>' ; setupCanvas();}
+let cvs,ctx,drawing=false;
+function setupCanvas(){cvs=document.getElementById('sig');ctx=cvs.getContext('2d');ctx.strokeStyle='#F59E0B';ctx.lineWidth=4;ctx.lineCap='round';cvs.onpointerdown=e=>{drawing=true;ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY)};cvs.onpointermove=e=>{if(drawing){ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke()}};cvs.onpointerup=()=>drawing=false;cvs.onpointerleave=()=>drawing=false}
+function clearSig(){if(ctx)ctx.clearRect(0,0,600,180)}
+function saveRecord(mod){let r={id:id(mod),mod,createdAt:new Date().toISOString(),tipo:tipo.value,desc:desc.value,local:local.value,resp:resp.value,colab:colab.value,obs:obs.value,assinatura:cvs?cvs.toDataURL('image/png'):''};let d=data();d.unshift(r);saveData(d);dashboard()}
+function dashboard(){let d=data();let counts={APR:0,PT:0,DDS:0,EPI:0,Inspeção:0,Ocorrência:0};d.forEach(r=>counts[r.mod]=(counts[r.mod]||0)+1);app.innerHTML='<h2>Dashboard</h2><div class="kpis">'+Object.keys(counts).map(k=>'<div><b>'+counts[k]+'</b><span>'+k+'</span></div>').join('')+'</div><h3>Histórico</h3>'+d.map(r=>'<div class="item"><b>'+r.id+'</b><div class="small">'+new Date(r.createdAt).toLocaleString('pt-BR')+' - '+r.mod+'</div><p>'+r.desc+' - '+r.local+'</p></div>').join('')}
+home();
+</script>
+</body>
+</html>
