@@ -172,7 +172,7 @@ public class MainActivity extends Activity {
                             Toast.makeText(MainActivity.this, "Erro ao gerar PDF: " + e.getMessage(), Toast.LENGTH_LONG).show();
                         }
                     }
-                }, 1200);
+                }, 1400);
             }
         });
 
@@ -183,8 +183,14 @@ public class MainActivity extends Activity {
         int pageWidth = 1240;
         int pageHeight = 1754;
         int contentHeight = (int) (view.getContentHeight() * view.getScale());
-        if (contentHeight <= 0) contentHeight = view.getMeasuredHeight();
+        int measuredHeight = view.getMeasuredHeight();
+        if (contentHeight <= 0) contentHeight = measuredHeight;
         if (contentHeight < pageHeight) contentHeight = pageHeight;
+
+        int remainder = contentHeight % pageHeight;
+        if (remainder > 0 && remainder < 80 && contentHeight > pageHeight) {
+            contentHeight = contentHeight - remainder;
+        }
 
         view.measure(
                 View.MeasureSpec.makeMeasureSpec(pageWidth, View.MeasureSpec.EXACTLY),
@@ -197,6 +203,8 @@ public class MainActivity extends Activity {
         try {
             int pageNumber = 1;
             for (int top = 0; top < contentHeight; top += pageHeight) {
+                int remaining = contentHeight - top;
+                if (top > 0 && remaining < 80) break;
                 PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create();
                 PdfDocument.Page page = document.startPage(pageInfo);
                 Canvas canvas = page.getCanvas();
