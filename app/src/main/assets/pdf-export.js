@@ -1,91 +1,21 @@
 (function(){
-  function esc(v){return String(v ?? '').replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function esc(v){return String(v == null ? '' : v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
   function yes(v,want){return v===want?'X':''}
   function statusLabel(v){return v==='sim'?'Aplicável':v==='nao'?'Não ok':v==='na'?'N/A':'Pendente'}
   function rows(items,cols){return items.map(function(item){return '<tr>'+cols.map(function(c){return '<td>'+c(item)+'</td>'}).join('')+'</tr>'}).join('')}
-  function getRecord(record){
-    if(record) return record;
-    if(typeof currentPTRecord==='function') return currentPTRecord();
-    return null;
-  }
-  function controlRows(r){
-    var out=[];
-    (r.riscos||[]).forEach(function(risco){
-      var controls=(window.riskBank&&window.riskBank[risco])||[];
-      controls.forEach(function(ctrl){
-        var key=typeof rid==='function'?rid(risco+ctrl):(risco+ctrl).replace(/[^a-zA-Z0-9]/g,'_');
-        var val=(r.controles&&r.controles[key])||'pendente';
-        out.push({risco:risco,ctrl:ctrl,val:val});
-      });
-    });
-    return out;
-  }
-  function pdfHtml(r){
-    var pend=(r.motivos||[]);
-    var controles=controlRows(r);
-    var epis=[].concat(r.epiExigido||[]).filter(function(v,i,a){return v&&a.indexOf(v)===i});
-    var equipe=r.equipe||[];
-    var fotos=r.fotos||[];
-    var statusClass=(r.status==='Liberada')?'ok':(r.status==='Encerrada'?'ok':'warn');
-    return '<!doctype html><html><head><meta charset="utf-8"><style>'+css()+'</style></head><body>'+ 
-      '<div class="page">'+
-      '<table class="head"><tr><td class="brand">SafeField</td><td class="doc-title">PERMISSÃO DE TRABALHO</td><td class="meta">Nº<br><b>'+esc(r.id)+'</b></td></tr></table>'+ 
-      '<table class="status"><tr><td>Status</td><td class="'+statusClass+'">'+esc(r.status||'')+'</td><td>Emissão</td><td>'+esc(new Date().toLocaleString('pt-BR'))+'</td></tr></table>'+ 
-      section('1. Dados Gerais', '<table class="gridtbl">'+
-        tr('Empresa / Planta',r.empresa,'Área / Setor',r.area)+
-        tr('Local da atividade',r.local,'Responsável da área',r.resp)+
-        tr('Data/hora início',r.inicio,'Data/hora término',r.fim)+
-        tr('Empresas executantes',r.executantes,'Executor líder',r.lider)+
-        trFull('Atividades', (r.atividades||[]).join(', '))+
-        trFull('Descrição detalhada da atividade', r.desc)+
-        trFull('Ferramentas / equipamentos', r.ferramentas)+
-        trFull('Substâncias / produtos', r.produtos)+
-      '</table>')+
-      section('2. Atenção / Condição de Suspensão','<div class="note">Emergência, abandono de área ou mudança nas condições de trabalho suspende esta permissão até nova avaliação.</div>')+
-      section('3. Riscos e Medidas de Controle','<table><thead><tr><th>Risco</th><th>Medida de controle</th><th>Aplicável</th><th>N/A</th><th>Não ok</th><th>Status</th></tr></thead><tbody>'+
-        rows(controles,[function(x){return esc(x.risco)},function(x){return esc(x.ctrl)},function(x){return yes(x.val,'sim')},function(x){return yes(x.val,'na')},function(x){return yes(x.val,'nao')},function(x){return esc(statusLabel(x.val))}])+
-      '</tbody></table>')+
-      section('4. EPIs Obrigatórios','<table><thead><tr><th>EPI / Controle</th><th>Obrigatório</th><th>Observação</th></tr></thead><tbody>'+
-        rows(epis,[function(x){return esc(x)},function(){return 'Sim'},function(){return ''}])+
-      '</tbody></table>')+
-      section('5. Emergência','<table class="gridtbl">'+
-        tr('Ponto de encontro',r.ponto,'Ramal / telefone',r.tel)+
-        tr('Parada de ambulância',r.amb,'Canal de rádio',r.radio)+
-        trFull('Procedimento',r.emergencia)+
-      '</table>')+
-      section('6. Assinaturas','<table class="gridtbl">'+
-        sigRow('Emissor',r.emissor,r.emissorFunc,r.sigEmit)+
-        sigRow('Executor líder',r.lider,r.liderFunc,r.sigLead)+
-      '</table><table><thead><tr><th>Trabalhador</th><th>Função</th><th>Empresa</th><th>Assinatura</th></tr></thead><tbody>'+
-        equipe.map(function(w){return '<tr><td>'+esc(w.nome)+'</td><td>'+esc(w.funcao)+'</td><td>'+esc(w.empresa)+'</td><td>'+(w.sig?'<img class="sig" src="'+w.sig+'">':'Pendente')+'</td></tr>'}).join('')+
-      '</tbody></table>')+
-      section('7. Evidência Fotográfica', fotos.length?'<div class="photos">'+fotos.map(function(p,i){return '<div><div class="photo-label">Foto '+(i+1)+'</div><img src="'+p+'"></div>'}).join('')+'</div>':'<div class="note">Nenhuma foto anexada.</div>')+
-      (pend.length?section('8. Pendências / Bloqueios','<table><thead><tr><th>#</th><th>Pendência</th></tr></thead><tbody>'+pend.map(function(p,i){return '<tr><td>'+(i+1)+'</td><td>'+esc(p)+'</td></tr>'}).join('')+'</tbody></table>'):'')+
-      '</div></body></html>';
-  }
+  function getRecord(record){if(record)return record;if(window.__lastPdfRecord)return window.__lastPdfRecord;if(typeof currentPTRecord==='function')return currentPTRecord();return null}
+  function getRiskBank(){try{return window.riskBank||riskBank||{}}catch(e){return window.riskBank||{}}}
+  function safeRid(s){try{return typeof rid==='function'?rid(s):String(s).replace(/[^a-zA-Z0-9]/g,'_')}catch(e){return String(s).replace(/[^a-zA-Z0-9]/g,'_')}}
+  function controlRows(r){var out=[];var bank=getRiskBank();(r.riscos||[]).forEach(function(risco){var controls=bank[risco]||[];controls.forEach(function(ctrl){var key=safeRid(risco+ctrl);var val=(r.controles&&r.controles[key])||'pendente';out.push({risco:risco,ctrl:ctrl,val:val})})});return out}
+  function pdfHtml(r){var pend=r.motivos||[];var controles=controlRows(r);var epis=[].concat(r.epiExigido||[]).filter(function(v,i,a){return v&&a.indexOf(v)===i});var equipe=r.equipe||[];var fotos=r.fotos||[];var statusClass=(r.status==='Liberada'||r.status==='Encerrada')?'ok':'warn';return '<!doctype html><html><head><meta charset="utf-8"><style>'+css()+'</style></head><body><div class="page">'+'<table class="head"><tr><td class="brand">SafeField</td><td class="doc-title">PERMISSÃO DE TRABALHO</td><td class="meta">Nº<br><b>'+esc(r.id)+'</b></td></tr></table>'+'<table class="status"><tr><td>Status</td><td class="'+statusClass+'">'+esc(r.status||'')+'</td><td>Emissão</td><td>'+esc(new Date().toLocaleString('pt-BR'))+'</td></tr></table>'+section('1. Dados Gerais','<table class="gridtbl">'+tr('Empresa / Planta',r.empresa,'Área / Setor',r.area)+tr('Local da atividade',r.local,'Responsável da área',r.resp)+tr('Data/hora início',r.inicio,'Data/hora término',r.fim)+tr('Empresas executantes',r.executantes,'Executor líder',r.lider)+trFull('Atividades',(r.atividades||[]).join(', '))+trFull('Descrição detalhada da atividade',r.desc)+trFull('Ferramentas / equipamentos',r.ferramentas)+trFull('Substâncias / produtos',r.produtos)+'</table>')+section('2. Atenção / Condição de Suspensão','<div class="note">Emergência, abandono de área ou mudança nas condições de trabalho suspende esta permissão até nova avaliação.</div>')+section('3. Riscos e Medidas de Controle','<table><thead><tr><th>Risco</th><th>Medida de controle</th><th>Aplicável</th><th>N/A</th><th>Não ok</th><th>Status</th></tr></thead><tbody>'+rows(controles,[function(x){return esc(x.risco)},function(x){return esc(x.ctrl)},function(x){return yes(x.val,'sim')},function(x){return yes(x.val,'na')},function(x){return yes(x.val,'nao')},function(x){return esc(statusLabel(x.val))}])+'</tbody></table>')+section('4. EPIs Obrigatórios','<table><thead><tr><th>EPI / Controle</th><th>Obrigatório</th><th>Observação</th></tr></thead><tbody>'+rows(epis,[function(x){return esc(x)},function(){return 'Sim'},function(){return ''}])+'</tbody></table>')+section('5. Emergência','<table class="gridtbl">'+tr('Ponto de encontro',r.ponto,'Ramal / telefone',r.tel)+tr('Parada de ambulância',r.amb,'Canal de rádio',r.radio)+trFull('Procedimento',r.emergencia)+'</table>')+section('6. Assinaturas','<table class="gridtbl">'+sigRow('Emissor',r.emissor,r.emissorFunc,r.sigEmit)+sigRow('Executor líder',r.lider,r.liderFunc,r.sigLead)+'</table><table><thead><tr><th>Trabalhador</th><th>Função</th><th>Empresa</th><th>Assinatura</th></tr></thead><tbody>'+equipe.map(function(w){return '<tr><td>'+esc(w.nome)+'</td><td>'+esc(w.funcao)+'</td><td>'+esc(w.empresa)+'</td><td>'+(w.sig?'<img class="sig" src="'+w.sig+'">':'Pendente')+'</td></tr>'}).join('')+'</tbody></table>')+section('7. Evidência Fotográfica',fotos.length?'<div class="photos">'+fotos.map(function(p,i){return '<div><div class="photo-label">Foto '+(i+1)+'</div><img src="'+p+'"></div>'}).join('')+'</div>':'<div class="note">Nenhuma foto anexada.</div>')+(pend.length?section('8. Pendências / Bloqueios','<table><thead><tr><th>#</th><th>Pendência</th></tr></thead><tbody>'+pend.map(function(p,i){return '<tr><td>'+(i+1)+'</td><td>'+esc(p)+'</td></tr>'}).join('')+'</tbody></table>'):'')+'</div></body></html>'}
   function section(title,body){return '<h2>'+esc(title)+'</h2>'+body}
   function tr(a,b,c,d){return '<tr><th>'+esc(a)+'</th><td>'+esc(b)+'</td><th>'+esc(c)+'</th><td>'+esc(d)+'</td></tr>'}
   function trFull(a,b){return '<tr><th>'+esc(a)+'</th><td colspan="3">'+esc(b)+'</td></tr>'}
   function sigRow(tipo,nome,func,img){return '<tr><th>'+esc(tipo)+'</th><td>'+esc(nome)+'<br><small>'+esc(func)+'</small></td><th>Assinatura</th><td>'+(img?'<img class="sig" src="'+img+'">':'Pendente')+'</td></tr>'}
-  function css(){return '@page{size:A4;margin:8mm}body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;margin:0;font-size:10px}.page{width:100%;}.head{width:100%;border-collapse:collapse;margin-bottom:4px}.head td{border:1px solid #111;padding:8px}.brand{font-size:18px;font-weight:900;color:#F59E0B;width:23%}.doc-title{font-size:16px;font-weight:900;text-align:center;background:#F59E0B;color:#111}.meta{text-align:center;width:23%;font-size:9px}.status,.gridtbl,table{width:100%;border-collapse:collapse;margin-bottom:8px}th,td{border:1px solid #333;padding:5px;vertical-align:top}th{background:#E5E7EB;text-align:left;font-weight:800}h2{background:#111827;color:#F59E0B;font-size:11px;padding:6px;margin:8px 0 0;border:1px solid #111827}.status td{font-weight:800}.ok{color:#166534;background:#DCFCE7}.warn{color:#92400E;background:#FEF3C7}.note{border:1px solid #333;padding:8px;background:#FFF7ED;margin-bottom:8px}.sig{max-width:180px;max-height:55px;object-fit:contain;background:#fff}.photos{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}.photos img{width:100%;max-height:210px;object-fit:cover;border:1px solid #333}.photo-label{background:#E5E7EB;border:1px solid #333;border-bottom:0;padding:4px;font-weight:800}small{font-size:8px;color:#444}';}
-  function share(r){
-    var html=pdfHtml(r);
-    var file='SafeField_PT_'+String(r.id||'sem_numero').replace(/[^a-zA-Z0-9_-]/g,'_');
-    if(window.SafeFieldAndroid&&typeof window.SafeFieldAndroid.sharePdfFromHtml==='function'){
-      window.SafeFieldAndroid.sharePdfFromHtml(html,file);
-    }else{
-      var w=window.open('','_blank');
-      if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print()},600)}
-      else alert('Compartilhamento de PDF disponível no app Android.');
-    }
-  }
+  function css(){return '@page{size:A4;margin:8mm}body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;margin:0;font-size:10px}.page{width:100%;}.head{width:100%;border-collapse:collapse;margin-bottom:4px}.head td{border:1px solid #111;padding:8px}.brand{font-size:18px;font-weight:900;color:#F59E0B;width:23%}.doc-title{font-size:16px;font-weight:900;text-align:center;background:#F59E0B;color:#111}.meta{text-align:center;width:23%;font-size:9px}.status,.gridtbl,table{width:100%;border-collapse:collapse;margin-bottom:8px}th,td{border:1px solid #333;padding:5px;vertical-align:top}th{background:#E5E7EB;text-align:left;font-weight:800}h2{background:#111827;color:#F59E0B;font-size:11px;padding:6px;margin:8px 0 0;border:1px solid #111827}.status td{font-weight:800}.ok{color:#166534;background:#DCFCE7}.warn{color:#92400E;background:#FEF3C7}.note{border:1px solid #333;padding:8px;background:#FFF7ED;margin-bottom:8px}.sig{max-width:180px;max-height:55px;object-fit:contain;background:#fff}.photos{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}.photos img{width:100%;max-height:210px;object-fit:cover;border:1px solid #333}.photo-label{background:#E5E7EB;border:1px solid #333;border-bottom:0;padding:4px;font-weight:800}small{font-size:8px;color:#444}'}
+  function setBusy(isBusy){var b=document.getElementById('btnSharePdfDirect');var s=document.getElementById('pdfStatusMsg');if(b){b.disabled=isBusy;b.textContent=isBusy?'Gerando PDF...':'Compartilhar PDF direto'}if(s)s.textContent=isBusy?'Gerando arquivo PDF. Aguarde o menu de compartilhamento abrir.':''}
+  function share(r){try{setBusy(true);var html=pdfHtml(r);var file='SafeField_PT_'+String(r.id||'sem_numero').replace(/[^a-zA-Z0-9_-]/g,'_');if(window.SafeFieldAndroid&&typeof window.SafeFieldAndroid.sharePdfFromHtml==='function'){window.SafeFieldAndroid.sharePdfFromHtml(html,file);setTimeout(function(){setBusy(false)},3500);return}setBusy(false);alert('Ponte Android de compartilhamento não encontrada. Atualize e recompile o app.')}catch(e){setBusy(false);alert('Erro ao gerar PDF: '+e.message)}}
   window.sharePTPdf=function(record){var r=getRecord(record);if(!r){alert('PT não encontrada.');return}share(r)};
-  var oldPrintPT=window.printPT;
-  window.printPT=function(record){
-    var r=getRecord(record);
-    if(!r){ if(oldPrintPT) return oldPrintPT(record); alert('PT não encontrada.'); return; }
-    app.innerHTML='<div class="title">PDF da Permissão de Trabalho</div><div class="form-card"><div class="pt-status"><span class="pill ok">Layout profissional em tabela</span><span class="pill">PDF direto</span></div><p>O documento será gerado em formato A4 com tabelas, assinaturas e fotos.</p><button class="primary" onclick="sharePTPdf()">Compartilhar PDF direto</button><button class="secondary" onclick="dashboard()">Voltar</button></div>';
-    window.__lastPdfRecord=r;
-    window.sharePTPdf=function(){share(window.__lastPdfRecord)};
-  };
+  window.shareLastPTPdf=function(){var r=getRecord(window.__lastPdfRecord);if(!r){alert('PT não encontrada para PDF.');return}share(r)};
+  window.printPT=function(record){var r=getRecord(record);if(!r){alert('PT não encontrada.');return}window.__lastPdfRecord=r;app.innerHTML='<div class="title">PDF da Permissão de Trabalho</div><div class="form-card"><div class="pt-status"><span class="pill ok">Layout profissional em tabela</span><span class="pill">PDF direto</span></div><p>O documento será gerado em formato A4 com tabelas, assinaturas e fotos.</p><button id="btnSharePdfDirect" class="primary" onclick="shareLastPTPdf()">Compartilhar PDF direto</button><div id="pdfStatusMsg" class="small" style="margin-top:10px"></div><button class="secondary" onclick="dashboard()">Voltar</button></div>'}
 })();
