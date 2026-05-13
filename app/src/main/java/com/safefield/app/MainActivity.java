@@ -2,11 +2,16 @@ package com.safefield.app;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.print.PrintAttributes;
+import android.print.PrintDocumentAdapter;
+import android.print.PrintManager;
 import android.provider.MediaStore;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -49,6 +54,7 @@ public class MainActivity extends Activity {
         settings.setMediaPlaybackRequiresUserGesture(false);
 
         webView.setWebViewClient(new WebViewClient());
+        webView.addJavascriptInterface(new SafeFieldBridge(), "SafeFieldAndroid");
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
@@ -93,6 +99,28 @@ public class MainActivity extends Activity {
 
         webView.loadUrl("file:///android_asset/index.html");
         setContentView(webView);
+    }
+
+    public class SafeFieldBridge {
+        @JavascriptInterface
+        public void printCurrentPage() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (webView == null) return;
+                    PrintManager printManager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                    if (printManager == null) return;
+                    String jobName = "SafeField_PT_" + new SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(new Date());
+                    PrintDocumentAdapter adapter = webView.createPrintDocumentAdapter(jobName);
+                    PrintAttributes attributes = new PrintAttributes.Builder()
+                            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                            .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                            .build();
+                    printManager.print(jobName, adapter, attributes);
+                }
+            });
+        }
     }
 
     private File createImageFile() throws IOException {
