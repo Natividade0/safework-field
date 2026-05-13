@@ -7,8 +7,12 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.CancellationSignal;
+import android.os.ParcelFileDescriptor;
+import android.print.PageRange;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
+import android.print.PrintDocumentInfo;
 import android.print.PrintManager;
 import android.provider.MediaStore;
 import android.webkit.JavascriptInterface;
@@ -112,15 +116,82 @@ public class MainActivity extends Activity {
                     if (printManager == null) return;
                     String jobName = "SafeField_PT_" + new SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(new Date());
                     PrintDocumentAdapter adapter = webView.createPrintDocumentAdapter(jobName);
-                    PrintAttributes attributes = new PrintAttributes.Builder()
-                            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                            .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
-                            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
-                            .build();
-                    printManager.print(jobName, adapter, attributes);
+                    printManager.print(jobName, adapter, getPdfAttributes());
                 }
             });
         }
+
+        @JavascriptInterface
+        public void sharePdfFromHtml(final String html, final String fileName) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    createPdfAndShare(html, fileName);
+                }
+            });
+        }
+    }
+
+    private PrintAttributes getPdfAttributes() {
+        return new PrintAttributes.Builder()
+                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                .build();
+    }
+
+    private void createPdfAndShare(String html, String rawFileName) {
+        final String cleanName = sanitizeFileName(rawFileName == null || rawFileName.trim().isEmpty() ? "SafeField_PT" : rawFileName);
+        final File pdfFile = new File(getCacheDir(), cleanName + ".pdf");
+        final WebView pdfWebView = new WebView(this);
+        WebSettings settings = pdfWebView.getSettings();
+        settings.setJavaScriptEnabled(false);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+
+        pdfWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                final PrintDocumentAdapter adapter = view.createPrintDocumentAdapter(cleanName);
+                final PrintAttributes attrs = getPdfAttributes();
+                try {
+                    final ParcelFileDescriptor pfd = ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_CREATE | ParcelFileDescriptor.MODE_TRUNCATE | ParcelFileDescriptor.MODE_READ_WRITE);
+                    adapter.onLayout(null, attrs, new CancellationSignal(), new PrintDocumentAdapter.LayoutResultCallback() {
+                        @Override
+                        public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
+                            adapter.onWrite(new PageRange[]{PageRange.ALL_PAGES}, pfd, new CancellationSignal(), new PrintDocumentAdapter.WriteResultCallback() {
+                                @Override
+                                public void onWriteFinished(PageRange[] pages) {
+                                    try { pfd.close(); } catch (IOException ignored) {}
+                                    sharePdfFile(pdfFile);
+                                }
+
+                                @Override
+                                public void onWriteFailed(CharSequence error) {
+                                    try { pfd.close(); } catch (IOException ignored) {}
+                                }
+                            });
+                        }
+                    }, new Bundle());
+                } catch (Exception ignored) {
+                }
+            }
+        });
+
+        pdfWebView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+    }
+
+    private String sanitizeFileName(String name) {
+        return name.replaceAll("[^a-zA-Z0-9_\\-]", "_");
+    }
+
+    private void sharePdfFile(File pdfFile) {
+        Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", pdfFile);
+        Intent shareIntent = new Intent(Intent.ACTION_SEND);
+        shareIntent.setType("application/pdf");
+        shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
+        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivity(Intent.createChooser(shareIntent, "Compartilhar PDF da PT"));
     }
 
     private File createImageFile() throws IOException {
