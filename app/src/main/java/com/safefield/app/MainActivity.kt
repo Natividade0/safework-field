@@ -80,7 +80,7 @@ class MainActivity : Activity() {
         scroll.isFillViewport = true
 
         val content = Ui.vbox(this, 20.dp())
-        scroll.addView(content, ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        scroll.addView(content, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         val header = Ui.row(this)
         header.gravity = Gravity.CENTER_VERTICAL
