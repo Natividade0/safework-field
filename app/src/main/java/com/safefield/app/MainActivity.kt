@@ -8,28 +8,23 @@ import android.graphics.*
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.os.Bundle
-import android.provider.MediaStore
 import android.view.Gravity
-import android.view.View
 import android.widget.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
-import java.text.SimpleDateFormat
-import java.util.*
 
 class MainActivity : Activity() {
     private val amber = Color.rgb(245, 158, 11)
     private val dark = Color.rgb(15, 17, 23)
     private val panel = Color.rgb(18, 22, 30)
-    private val text = Color.rgb(230, 237, 243)
+    private val textColor = Color.rgb(230, 237, 243)
     private val muted = Color.rgb(156, 163, 175)
     private lateinit var root: LinearLayout
     private lateinit var scroll: ScrollView
     private lateinit var content: LinearLayout
-    private var cameraUri: Uri? = null
     private val photos = mutableListOf<Uri>()
     private val workers = mutableListOf<String>()
     private val risks = mutableSetOf<String>()
@@ -93,7 +88,7 @@ class MainActivity : Activity() {
 
     private fun input(key: String, hint: String, multi: Boolean = false): EditText {
         val e = EditText(this).apply {
-            setTextColor(text)
+            setTextColor(textColor)
             setHintTextColor(muted)
             setSingleLine(!multi)
             minLines = if (multi) 3 else 1
@@ -127,7 +122,7 @@ class MainActivity : Activity() {
         content.addView(TextView(this).apply {
             text = "Módulos"
             textSize = 24f
-            setTextColor(text)
+            setTextColor(textColor)
             setTypeface(Typeface.DEFAULT_BOLD)
         })
         val modules = listOf("Permissão de Trabalho", "APR", "DDS", "EPI", "Inspeção", "Ocorrência", "Colaboradores", "Dashboard")
@@ -141,7 +136,7 @@ class MainActivity : Activity() {
         section(name)
         content.addView(TextView(this).apply {
             text = "Módulo nativo Kotlin preparado. A próxima etapa é detalhar este formulário."
-            setTextColor(text)
+            setTextColor(textColor)
             textSize = 15f
         })
         content.addView(button("Voltar") { showHome() })
@@ -165,7 +160,7 @@ class MainActivity : Activity() {
         riskBank.keys.forEach { act ->
             val cb = CheckBox(this).apply {
                 text = act
-                setTextColor(text)
+                setTextColor(textColor)
                 setOnCheckedChangeListener { _, checked ->
                     if (checked) risks.addAll(riskBank[act] ?: emptyList()) else risks.removeAll(riskBank[act] ?: emptyList())
                 }
@@ -177,7 +172,7 @@ class MainActivity : Activity() {
         prereqs().forEachIndexed { i, item ->
             val cb = CheckBox(this).apply {
                 text = item
-                setTextColor(text)
+                setTextColor(textColor)
                 setOnCheckedChangeListener { _, checked -> checks[i] = checked }
             }
             content.addView(cb)
@@ -189,8 +184,8 @@ class MainActivity : Activity() {
         section("Trabalhadores")
         val workerInput = input("worker", "Nome do trabalhador + função")
         content.addView(button("Adicionar trabalhador") {
-            val v = workerInput.text.toString().trim()
-            if (v.isNotEmpty()) { workers.add(v); workerInput.setText(""); toast("Trabalhador adicionado") }
+            val value = workerInput.text.toString().trim()
+            if (value.isNotEmpty()) { workers.add(value); workerInput.setText(""); toast("Trabalhador adicionado") }
         })
         section("Fotos")
         content.addView(button("Adicionar foto") { openPhotoChooser() })
@@ -212,12 +207,12 @@ class MainActivity : Activity() {
     private fun sharePtPdf() {
         val pdf = createPtPdf()
         val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", pdf)
-        val i = Intent(Intent.ACTION_SEND).apply {
+        val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/pdf"
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        startActivity(Intent.createChooser(i, "Compartilhar PT em PDF"))
+        startActivity(Intent.createChooser(intent, "Compartilhar PT em PDF"))
     }
 
     private fun createPtPdf(): File {
@@ -227,8 +222,8 @@ class MainActivity : Activity() {
         var page = newPage(doc, pageNo)
         var canvas = page.canvas
         var y = 70f
-        fun ensure(h: Float) {
-            if (y + h > 790f) {
+        fun ensure(height: Float) {
+            if (y + height > 790f) {
                 doc.finishPage(page)
                 pageNo++
                 page = newPage(doc, pageNo)
@@ -236,24 +231,24 @@ class MainActivity : Activity() {
                 y = 70f
             }
         }
-        fun line(s: String, bold: Boolean = false, size: Float = 12f) {
-            val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        fun line(value: String, bold: Boolean = false, size: Float = 12f) {
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.BLACK
                 textSize = size
                 typeface = if (bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             }
-            wrapText(s, 82).forEach {
+            wrapText(value, 82).forEach {
                 ensure(18f)
-                canvas.drawText(it, 38f, y, p)
+                canvas.drawText(it, 38f, y, paint)
                 y += 18f
             }
         }
-        fun title(s: String) {
+        fun title(value: String) {
             ensure(34f)
-            val p = Paint().apply { color = dark }
-            canvas.drawRect(30f, y - 18f, 565f, y + 8f, p)
-            p.color = amber; p.textSize = 14f; p.typeface = Typeface.DEFAULT_BOLD
-            canvas.drawText(s, 38f, y, p)
+            val paint = Paint().apply { color = dark }
+            canvas.drawRect(30f, y - 18f, 565f, y + 8f, paint)
+            paint.color = amber; paint.textSize = 14f; paint.typeface = Typeface.DEFAULT_BOLD
+            canvas.drawText(value, 38f, y, paint)
             y += 28f
         }
         title("PERMISSÃO DE TRABALHO")
@@ -290,33 +285,33 @@ class MainActivity : Activity() {
 
     private fun newPage(doc: PdfDocument, pageNo: Int): PdfDocument.Page {
         val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNo).create())
-        val c = page.canvas
-        val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        p.color = dark; c.drawRect(0f, 0f, 595f, 48f, p)
-        p.color = amber; c.drawRect(0f, 0f, 10f, 842f, p)
-        p.color = amber; p.textSize = 20f; p.typeface = Typeface.DEFAULT_BOLD
-        c.drawText("SAFEFIELD", 36f, 31f, p)
-        p.color = text; p.textSize = 12f; p.typeface = Typeface.DEFAULT
-        c.drawText("Segurança do Trabalho em Campo", 170f, 31f, p)
-        p.color = Color.GRAY; p.textSize = 10f
-        c.drawText("Página $pageNo", 500f, 825f, p)
+        val canvas = page.canvas
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.color = dark; canvas.drawRect(0f, 0f, 595f, 48f, paint)
+        paint.color = amber; canvas.drawRect(0f, 0f, 10f, 842f, paint)
+        paint.color = amber; paint.textSize = 20f; paint.typeface = Typeface.DEFAULT_BOLD
+        canvas.drawText("SAFEFIELD", 36f, 31f, paint)
+        paint.color = textColor; paint.textSize = 12f; paint.typeface = Typeface.DEFAULT
+        canvas.drawText("Segurança do Trabalho em Campo", 170f, 31f, paint)
+        paint.color = Color.GRAY; paint.textSize = 10f
+        canvas.drawText("Página $pageNo", 500f, 825f, paint)
         return page
     }
 
-    private fun wrapText(s: String, max: Int): List<String> {
-        val words = s.replace("\n", " ").split(" ")
+    private fun wrapText(value: String, max: Int): List<String> {
+        val words = value.replace("\n", " ").split(" ")
         val out = mutableListOf<String>()
         var line = ""
-        for (w in words) {
-            if ((line + " " + w).trim().length > max) { out.add(line); line = w } else line = (line + " " + w).trim()
+        for (word in words) {
+            if ((line + " " + word).trim().length > max) { out.add(line); line = word } else line = (line + " " + word).trim()
         }
         if (line.isNotEmpty()) out.add(line)
         return if (out.isEmpty()) listOf("-") else out
     }
 
     private fun openPhotoChooser() {
-        val i = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*"; addCategory(Intent.CATEGORY_OPENABLE) }
-        startActivityForResult(Intent.createChooser(i, "Selecionar foto"), 200)
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*"; addCategory(Intent.CATEGORY_OPENABLE) }
+        startActivityForResult(Intent.createChooser(intent, "Selecionar foto"), 200)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -326,5 +321,5 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
+    private fun toast(value: String) = Toast.makeText(this, value, Toast.LENGTH_SHORT).show()
 }
