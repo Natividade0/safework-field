@@ -6,7 +6,6 @@ object RiskEngine {
     const val NA = "N/A"
 
     val activities = listOf("Içamento de carga", "Trabalho em altura", "Escavação", "Trabalho a quente", "Eletricidade / LOTO", "Montagem industrial", "Espaço confinado", "Movimentação de máquinas", "Produtos químicos")
-
     val checklistItems = listOf("APR válida emitida para esta atividade", "EPIs específicos inspecionados e aprovados", "Treinamento NR em dia para todos os envolvidos", "Área isolada e sinalizada adequadamente", "Responsável presente no local antes do início", "Ferramentas inspecionadas", "Condições climáticas avaliadas", "Comunicação de emergência definida", "Rotas de fuga livres", "Permissões complementares verificadas")
 
     private val activityRisks = mapOf(
@@ -67,25 +66,23 @@ object RiskEngine {
 
     fun pending(data: PtData): List<String> {
         val p = mutableListOf<String>()
-        if (data.company.isBlank()) p.add("Empresa / Planta pendente")
-        if (data.place.isBlank()) p.add("Local da atividade pendente")
-        if (data.responsible.isBlank()) p.add("Responsável / Emissor pendente")
-        if (data.startMillis <= 0L) p.add("Início da PT pendente")
-        if (data.endMillis <= 0L) p.add("Término da PT pendente")
-        if (data.description.isBlank()) p.add("Descrição detalhada da atividade pendente")
-        if (data.activities.isEmpty() && data.manualActivity.isBlank()) p.add("Selecione uma atividade crítica ou informe análise manual")
-        if (data.workers.isEmpty()) p.add("Ao menos um trabalhador deve ser adicionado")
+        val fields = mutableListOf<String>()
+        if (data.company.isBlank()) fields.add("Empresa / Planta")
+        if (data.place.isBlank()) fields.add("Local da atividade")
+        if (data.responsible.isBlank()) fields.add("Responsável / Emissor")
+        if (data.startMillis <= 0L) fields.add("Início")
+        if (data.endMillis <= 0L) fields.add("Término")
+        if (data.description.isBlank()) fields.add("Descrição detalhada")
+        if (fields.isNotEmpty()) p.add("Campos obrigatórios pendentes: ${fields.joinToString(", ")}")
+        if (data.activities.isEmpty() && data.manualActivity.isBlank()) p.add("Informe ao menos uma atividade crítica ou análise manual")
+        if (data.workers.isEmpty()) p.add("Adicione ao menos um trabalhador")
         if (data.signatureB64.isBlank()) p.add("Assinatura do responsável pendente")
-        checklistItems.forEach {
-            val answer = data.checklist[it].orEmpty()
-            if (answer.isBlank()) p.add("Checklist pendente: $it")
-            if (answer == NO) p.add("Checklist não conforme: $it")
+        if (checklistItems.any { data.checklist[it].isNullOrBlank() }) p.add("Checklist possui itens sem resposta")
+        if (checklistItems.any { data.checklist[it] == NO }) p.add("Há item marcado como Não no checklist")
+        val hasControlPending = risksFor(data).any { risk ->
+            controls[risk].orEmpty().any { control -> data.controls[controlKey(risk, control)].isNullOrBlank() }
         }
-        risksFor(data).forEach { risk ->
-            controls[risk].orEmpty().forEach { control ->
-                if (data.controls[controlKey(risk, control)].isNullOrBlank()) p.add("Controle pendente: $risk - $control")
-            }
-        }
+        if (hasControlPending) p.add("Há medidas de controle sem resposta")
         return p
     }
 

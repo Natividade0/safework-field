@@ -2,7 +2,7 @@ package com.safefield.app
 
 data class Worker(val name: String, val role: String)
 
-data class PtHistoryItem(val emittedAt: String, val place: String, val fileName: String)
+data class PtHistoryItem(val emittedAt: String, val place: String, val fileName: String, val status: String = "LIBERADA")
 
 data class PtData(
     var company: String = "",

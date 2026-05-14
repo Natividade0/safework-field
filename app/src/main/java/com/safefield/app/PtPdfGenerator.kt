@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import java.io.File
@@ -14,39 +15,48 @@ import java.util.Date
 import java.util.Locale
 
 class PtPdfGenerator(private val context: Context, private val repo: PtRepository) {
-    private val pageWidth = 595
-    private val pageHeight = 842
-    private val left = 42f
-    private val right = 553f
-    private val bottom = 790f
-    private val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(15, 17, 23); textSize = 18f; typeface = Typeface.DEFAULT_BOLD }
-    private val hPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(17, 24, 39); textSize = 12f; typeface = Typeface.DEFAULT_BOLD }
-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(31, 41, 55); textSize = 10f }
-    private val smallPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(107, 114, 128); textSize = 8.5f }
-    private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(209, 213, 219); strokeWidth = 1f }
-    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(209, 213, 219); strokeWidth = 1f; style = Paint.Style.STROKE }
-    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val pageWidth: Int = 595
+    private val pageHeight: Int = 842
+    private val left: Float = 36f
+    private val right: Float = 559f
+    private val topContent: Float = 104f
+    private val bottom: Float = 790f
+    private val amber: Int = Color.rgb(245, 158, 11)
+    private val dark: Int = Color.rgb(15, 17, 23)
+    private val panel: Int = Color.rgb(243, 244, 246)
+    private val border: Int = Color.rgb(209, 213, 219)
+    private val textColor: Int = Color.rgb(31, 41, 55)
+    private val muted: Int = Color.rgb(107, 114, 128)
+    private val generatedAt: String = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR")).format(Date())
     private lateinit var doc: PdfDocument
     private lateinit var canvas: Canvas
+    private lateinit var page: PdfDocument.Page
     private lateinit var currentData: PtData
-    private var pageNumber = 0
-    private var page: PdfDocument.Page? = null
-    private var y = 0f
-    private val generatedAt = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR")).format(Date())
+    private var pageNumber: Int = 0
+    private var y: Float = topContent
+
+    private val fillPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val strokePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 1f; color = border }
+    private val titlePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 18f; typeface = Typeface.DEFAULT_BOLD }
+    private val subtitlePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(229, 231, 235); textSize = 9.5f }
+    private val sectionPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = dark; textSize = 12f; typeface = Typeface.DEFAULT_BOLD }
+    private val headerPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 8.8f; typeface = Typeface.DEFAULT_BOLD }
+    private val labelPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; textSize = 8.7f; typeface = Typeface.DEFAULT_BOLD }
+    private val bodyPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = textColor; textSize = 9.2f }
+    private val smallPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; textSize = 8f }
+    private val statusPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 10.5f; typeface = Typeface.DEFAULT_BOLD }
 
     fun generate(data: PtData): File {
-        doc = PdfDocument(); currentData = data; newPage(data)
-        section("Identificação"); field("Empresa / Planta", data.company); field("Área / Setor", data.area); field("Local da atividade", data.place); field("Responsável / Emissor", data.responsible)
-        field("Início", Ui.fmt(data.startMillis)); field("Validade", "${data.validityHours}h"); field("Término", Ui.fmt(data.endMillis)); field("Equipe executante", data.teamName)
-        section("Descrição da atividade"); paragraph(data.description); field("Ferramentas / equipamentos", data.tools); field("Substâncias / produtos", data.products)
-        section("Checklist"); RiskEngine.checklistItems.forEach { field(it, data.checklist[it].orEmpty()) }
-        section("Riscos e controles")
-        val risks = RiskEngine.risksFor(data)
-        if (risks.isEmpty()) paragraph("Nenhum risco gerado.")
-        risks.forEach { risk -> ensure(48f); canvas.drawText(risk, left, y, hPaint); y += 14f; RiskEngine.controls[risk].orEmpty().forEach { control -> field("- $control", data.controls[RiskEngine.controlKey(risk, control)].orEmpty()) }; y += 4f }
-        section("Trabalhadores"); data.workers.forEachIndexed { index, worker -> field("${index + 1}. ${worker.name}", worker.role) }
-        section("Evidências"); field("Fotos anexadas", data.photoUris.size.toString())
-        section("Assinatura do responsável"); repo.base64ToBitmap(data.signatureB64)?.let { drawSignature(it) } ?: paragraph("Assinatura pendente"); field("Nome do responsável", data.responsible)
+        doc = PdfDocument()
+        currentData = data
+        newPage()
+        drawIdentification(data)
+        drawDescription(data)
+        drawChecklist(data)
+        drawRisks(data)
+        drawWorkers(data)
+        drawEvidence(data)
+        drawSignature(data)
         finishPage()
         val file = File(context.cacheDir, "SafeField_PT_${System.currentTimeMillis()}.pdf")
         FileOutputStream(file).use { doc.writeTo(it) }
@@ -54,20 +64,166 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
         return file
     }
 
-    private fun newPage(data: PtData) {
-        pageNumber++; page = doc.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()); canvas = page!!.canvas; y = 42f
-        fillPaint.color = Color.WHITE; canvas.drawRect(0f, 0f, pageWidth.toFloat(), pageHeight.toFloat(), fillPaint)
-        fillPaint.color = Color.rgb(245, 158, 11); canvas.drawRect(0f, 0f, pageWidth.toFloat(), 78f, fillPaint)
-        canvas.drawText("SAFEFIELD", left, 33f, titlePaint); canvas.drawText("Segurança do Trabalho em Campo", left, 51f, hPaint)
-        canvas.drawText("Permissão de Trabalho", 382f, 33f, hPaint); canvas.drawText("Emissão: $generatedAt", 382f, 50f, textPaint)
-        canvas.drawText("Status: ${if (RiskEngine.isReleased(data)) "PT LIBERADA" else "PT BLOQUEADA"}", 382f, 65f, textPaint); y = 104f
+    private fun newPage(): Unit {
+        pageNumber++
+        page = doc.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+        canvas = page.canvas
+        y = topContent
+        fillPaint.color = Color.WHITE
+        canvas.drawRect(0f, 0f, pageWidth.toFloat(), pageHeight.toFloat(), fillPaint)
+        drawHeader()
     }
 
-    private fun finishPage() { canvas.drawLine(left, 806f, right, 806f, linePaint); canvas.drawText("SafeField", left, 820f, smallPaint); canvas.drawText("Gerado em $generatedAt", 245f, 820f, smallPaint); canvas.drawText("Página $pageNumber", 510f, 820f, smallPaint); doc.finishPage(page) }
-    private fun ensure(space: Float) { if (y + space <= bottom) return; finishPage(); newPage(currentData) }
-    private fun section(text: String) { ensure(32f); y += 8f; fillPaint.color = Color.rgb(243, 244, 246); canvas.drawRoundRect(left - 6f, y - 16f, right, y + 6f, 6f, 6f, fillPaint); canvas.drawText(text, left, y, hPaint); y += 20f }
-    private fun field(label: String, value: String) { ensure(28f); val splitX = 218f; canvas.drawText(label, left, y, smallPaint); y += wrap(value.ifBlank { "-" }, splitX, y, right - splitX, textPaint); canvas.drawLine(left, y + 2f, right, y + 2f, linePaint); y += 12f }
-    private fun paragraph(text: String) { ensure(34f); y += wrap(text.ifBlank { "-" }, left, y, right - left, textPaint); y += 10f }
-    private fun wrap(text: String, x: Float, startY: Float, width: Float, paint: Paint): Float { var yy = startY; val words = text.replace("\n", " ").split(" "); var line = ""; words.forEach { word -> val next = if (line.isEmpty()) word else "$line $word"; if (paint.measureText(next) > width && line.isNotEmpty()) { ensure(14f); canvas.drawText(line, x, yy, paint); yy += 12f; line = word } else line = next }; if (line.isNotEmpty()) canvas.drawText(line, x, yy, paint); return yy - startY + 12f }
-    private fun drawSignature(bitmap: Bitmap) { ensure(110f); fillPaint.color = Color.WHITE; canvas.drawRect(left, y, left + 230f, y + 88f, fillPaint); canvas.drawRect(left, y, left + 230f, y + 88f, borderPaint); val scaled = Bitmap.createScaledBitmap(bitmap, 220, 78, true); canvas.drawBitmap(scaled, left + 5f, y + 5f, null); y += 104f }
+    private fun drawHeader(): Unit {
+        fillPaint.color = dark
+        canvas.drawRect(0f, 0f, pageWidth.toFloat(), 82f, fillPaint)
+        fillPaint.color = amber
+        canvas.drawRect(0f, 82f, pageWidth.toFloat(), 90f, fillPaint)
+        canvas.drawText("SAFEFIELD", left, 28f, titlePaint)
+        canvas.drawText("Segurança do Trabalho em Campo", left, 45f, subtitlePaint)
+        canvas.drawText("PERMISSÃO DE TRABALHO", 330f, 28f, titlePaint)
+        canvas.drawText("Emissão: $generatedAt", 330f, 46f, subtitlePaint)
+        canvas.drawText("PT-${System.currentTimeMillis().toString().takeLast(6)}", 330f, 62f, subtitlePaint)
+        val status = if (RiskEngine.isReleased(currentData)) "LIBERADA" else "BLOQUEADA"
+        fillPaint.color = if (status == "LIBERADA") Color.rgb(34, 197, 94) else Color.rgb(239, 68, 68)
+        canvas.drawRoundRect(RectF(470f, 52f, right, 72f), 8f, 8f, fillPaint)
+        canvas.drawText(status, 481f, 66f, statusPaint)
+    }
+
+    private fun finishPage(): Unit {
+        canvas.drawLine(left, 806f, right, 806f, strokePaint)
+        canvas.drawText("SafeField", left, 821f, smallPaint)
+        canvas.drawText("Gerado em $generatedAt", 235f, 821f, smallPaint)
+        canvas.drawText("Página $pageNumber", 510f, 821f, smallPaint)
+        doc.finishPage(page)
+    }
+
+    private fun ensure(space: Float): Unit {
+        if (y + space <= bottom) return
+        finishPage()
+        newPage()
+    }
+
+    private fun section(title: String): Unit {
+        ensure(34f)
+        y += 8f
+        fillPaint.color = panel
+        canvas.drawRoundRect(RectF(left, y, right, y + 24f), 6f, 6f, fillPaint)
+        fillPaint.color = amber
+        canvas.drawRect(left, y, left + 5f, y + 24f, fillPaint)
+        canvas.drawText(title, left + 12f, y + 16f, sectionPaint)
+        y += 34f
+    }
+
+    private fun drawIdentification(data: PtData): Unit {
+        section("1. Identificação")
+        twoColumnTable(listOf("Empresa / Planta" to data.company, "Área / Setor" to data.area, "Local da atividade" to data.place, "Responsável / Emissor" to data.responsible, "Início" to Ui.fmt(data.startMillis), "Validade" to "${data.validityHours}h", "Término" to Ui.fmt(data.endMillis), "Equipe executante" to data.teamName))
+    }
+
+    private fun drawDescription(data: PtData): Unit {
+        section("2. Descrição da atividade")
+        twoColumnTable(listOf("Descrição detalhada" to data.description, "Ferramentas / equipamentos" to data.tools, "Substâncias / produtos" to data.products))
+    }
+
+    private fun drawChecklist(data: PtData): Unit {
+        section("3. Checklist de liberação")
+        tableHeader(floatArrayOf(430f, 93f), arrayOf("Item", "Resposta"))
+        RiskEngine.checklistItems.forEach { item -> tableRow(floatArrayOf(430f, 93f), arrayOf(item, data.checklist[item].orEmpty().ifBlank { "-" })) }
+    }
+
+    private fun drawRisks(data: PtData): Unit {
+        section("4. Riscos e controles")
+        tableHeader(floatArrayOf(142f, 293f, 88f), arrayOf("Risco", "Medida de controle", "Resposta"))
+        val risks = RiskEngine.risksFor(data)
+        if (risks.isEmpty()) { tableRow(floatArrayOf(142f, 293f, 88f), arrayOf("-", "Nenhum risco gerado", "-")); return }
+        risks.forEach { risk ->
+            RiskEngine.controls[risk].orEmpty().forEach { control ->
+                val answer = data.controls[RiskEngine.controlKey(risk, control)].orEmpty().ifBlank { "-" }
+                tableRow(floatArrayOf(142f, 293f, 88f), arrayOf(risk, control, answer))
+            }
+        }
+    }
+
+    private fun drawWorkers(data: PtData): Unit {
+        section("5. Trabalhadores")
+        tableHeader(floatArrayOf(60f, 285f, 178f), arrayOf("Nº", "Nome", "Função"))
+        if (data.workers.isEmpty()) tableRow(floatArrayOf(60f, 285f, 178f), arrayOf("-", "Nenhum trabalhador informado", "-"))
+        else data.workers.forEachIndexed { index, worker -> tableRow(floatArrayOf(60f, 285f, 178f), arrayOf("${index + 1}", worker.name, worker.role.ifBlank { "-" })) }
+    }
+
+    private fun drawEvidence(data: PtData): Unit {
+        section("6. Evidências")
+        twoColumnTable(listOf("Fotos anexadas" to data.photoUris.size.toString()))
+    }
+
+    private fun drawSignature(data: PtData): Unit {
+        section("7. Assinatura do responsável")
+        ensure(138f)
+        val boxTop = y
+        fillPaint.color = Color.WHITE
+        canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 112f), 6f, 6f, fillPaint)
+        canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 112f), 6f, 6f, strokePaint)
+        repo.base64ToBitmap(data.signatureB64)?.let { bitmap ->
+            val scaled = scaleSignature(bitmap, 230, 78)
+            canvas.drawBitmap(scaled, left + 18f, boxTop + 12f, null)
+        } ?: canvas.drawText("Assinatura pendente", left + 18f, boxTop + 46f, bodyPaint)
+        canvas.drawLine(left + 280f, boxTop + 72f, right - 18f, boxTop + 72f, strokePaint)
+        canvas.drawText(data.responsible.ifBlank { "Responsável não informado" }, left + 280f, boxTop + 91f, bodyPaint)
+        canvas.drawText("Nome e identificação do responsável", left + 280f, boxTop + 104f, smallPaint)
+        y += 128f
+    }
+
+    private fun twoColumnTable(items: List<Pair<String, String>>): Unit {
+        val widths = floatArrayOf(160f, 363f)
+        items.forEach { item -> tableRow(widths, arrayOf(item.first, item.second.ifBlank { "-" }), labelFirst = true) }
+    }
+
+    private fun tableHeader(widths: FloatArray, labels: Array<String>): Unit {
+        ensure(24f)
+        fillPaint.color = dark
+        var x = left
+        widths.forEachIndexed { index, width ->
+            canvas.drawRect(x, y, x + width, y + 22f, fillPaint)
+            canvas.drawRect(x, y, x + width, y + 22f, strokePaint)
+            canvas.drawText(labels[index], x + 6f, y + 14f, headerPaint)
+            x += width
+        }
+        y += 22f
+    }
+
+    private fun tableRow(widths: FloatArray, values: Array<String>, labelFirst: Boolean = false): Unit {
+        val lines = values.mapIndexed { index, value -> wrapLines(value, widths[index] - 12f, if (labelFirst && index == 0) labelPaint else bodyPaint) }
+        val rowHeight = (lines.maxOf { it.size } * 11f + 12f).coerceAtLeast(25f)
+        ensure(rowHeight)
+        var x = left
+        widths.forEachIndexed { index, width ->
+            fillPaint.color = if (labelFirst && index == 0) panel else Color.WHITE
+            canvas.drawRect(x, y, x + width, y + rowHeight, fillPaint)
+            canvas.drawRect(x, y, x + width, y + rowHeight, strokePaint)
+            val paint = if (labelFirst && index == 0) labelPaint else bodyPaint
+            var textY = y + 15f
+            lines[index].forEach { line -> canvas.drawText(line, x + 6f, textY, paint); textY += 11f }
+            x += width
+        }
+        y += rowHeight
+    }
+
+    private fun wrapLines(value: String, width: Float, paint: Paint): List<String> {
+        val words = value.replace("\n", " ").trim().ifBlank { "-" }.split(Regex("\\s+"))
+        val lines = mutableListOf<String>()
+        var line = ""
+        words.forEach { word ->
+            val next = if (line.isBlank()) word else "$line $word"
+            if (paint.measureText(next) > width && line.isNotBlank()) { lines.add(line); line = word } else line = next
+        }
+        if (line.isNotBlank()) lines.add(line)
+        return lines.ifEmpty { listOf("-") }
+    }
+
+    private fun scaleSignature(bitmap: Bitmap, maxWidth: Int, maxHeight: Int): Bitmap {
+        val ratio = minOf(maxWidth.toFloat() / bitmap.width.toFloat(), maxHeight.toFloat() / bitmap.height.toFloat())
+        val w = (bitmap.width * ratio).toInt().coerceAtLeast(1)
+        val h = (bitmap.height * ratio).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(bitmap, w, h, true)
+    }
 }
