@@ -14,6 +14,7 @@ import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
 import android.provider.MediaStore;
+import android.util.Base64;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
@@ -100,11 +101,29 @@ public class MainActivity extends Activity {
                 printManager.print(jobName, adapter, attributes);
             }});
         }
+
         @JavascriptInterface
         public void sharePdfFromHtml(final String html, final String fileName) {
             runOnUiThread(new Runnable() { public void run() {
                 Toast.makeText(MainActivity.this, "Gerando PDF...", Toast.LENGTH_SHORT).show();
                 createPdfAndShare(html, fileName);
+            }});
+        }
+
+        @JavascriptInterface
+        public void shareBase64Pdf(final String base64Pdf, final String fileName) {
+            runOnUiThread(new Runnable() { public void run() {
+                try {
+                    String cleanName = sanitizeFileName(fileName == null || fileName.trim().isEmpty() ? "SafeField_PT" : fileName);
+                    File pdfFile = new File(getCacheDir(), cleanName + ".pdf");
+                    byte[] data = Base64.decode(base64Pdf, Base64.DEFAULT);
+                    FileOutputStream out = new FileOutputStream(pdfFile);
+                    out.write(data);
+                    out.close();
+                    sharePdfFile(pdfFile);
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, "Erro ao compartilhar PDF: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
             }});
         }
     }
