@@ -17,6 +17,7 @@ import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import java.text.SimpleDateFormat
@@ -76,110 +77,234 @@ class MainActivity : Activity() {
     private fun screen(title: String, back: (() -> Unit)? = null, body: LinearLayout.() -> Unit): Unit {
         val scroll = ScrollView(this)
         scroll.setBackgroundColor(Ui.SHELL)
+        scroll.isFillViewport = true
 
-        val content = Ui.vbox(this, 16.dp())
-        scroll.addView(content)
+        val content = Ui.vbox(this, 20.dp())
+        scroll.addView(content, ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         val header = Ui.row(this)
+        header.gravity = Gravity.CENTER_VERTICAL
         if (back != null) {
-            val backButton = Ui.ghostButton(this, "Voltar")
-            backButton.layoutParams = LinearLayout.LayoutParams(96.dp(), ViewGroup.LayoutParams.WRAP_CONTENT)
+            val backButton = Ui.ghostButton(this, "‹")
+            backButton.textSize = 24f
+            backButton.layoutParams = LinearLayout.LayoutParams(48.dp(), 48.dp())
             backButton.setOnClickListener { saveAnd(back) }
             header.addView(backButton)
         }
 
-        val titleView = Ui.title(this, title)
-        titleView.gravity = Gravity.CENTER_VERTICAL
-        titleView.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        header.addView(titleView)
+        val titleBox = Ui.vbox(this)
+        val titleView = Ui.title(this, title, if (title == "SafeField") 30f else 25f)
+        titleBox.addView(titleView)
+        if (title == "SafeField") titleBox.addView(Ui.label(this, "Segurança do Trabalho em Campo"))
+        titleBox.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        header.addView(titleBox)
 
-        content.addView(header)
+        content.addView(header.margin(0, 4.dp()))
         content.body()
+        Ui.animateIn(content)
         setContentView(scroll)
     }
 
     private fun showHome(): Unit {
         screen("SafeField") {
-            addView(Ui.label(this@MainActivity, "Segurança do Trabalho em Campo"))
+            val pending = RiskEngine.pending(data)
+            addView(homeHero(pending).margin(0, 10.dp()))
+            addView(Ui.section(this@MainActivity, "Módulos de campo").margin(0, 10.dp()))
             val modules = listOf("Permissão de Trabalho", "APR", "DDS", "EPI", "Inspeção", "Ocorrência", "Colaboradores", "Dashboard")
-            modules.forEach { name ->
-                addView(moduleCard(name).margin(6.dp()))
+            modules.forEachIndexed { index, name ->
+                addView(moduleCard(name, index, pending).margin(0, 7.dp()))
             }
         }
     }
 
-    private fun moduleCard(name: String): LinearLayout {
-        val card = Ui.card(this)
-        card.addView(Ui.title(this, name, 18f))
-        val subtitle = if (name == "Permissão de Trabalho") "Central completa para emissão de PT" else "Módulo preparado para expansão"
-        card.addView(Ui.label(this, subtitle))
-        card.setOnClickListener {
-            if (name == "Permissão de Trabalho") showPtCentral() else placeholder(name)
+    private fun homeHero(pending: List<String>): LinearLayout {
+        val hero = Ui.heroCard(this)
+        hero.addView(Ui.chip(this, "SAFEFIELD • CAMPO", Ui.AMBER_SOFT))
+        hero.addView(Ui.title(this, "Controle inteligente de PT", 24f).margin(0, 8.dp()))
+        hero.addView(Ui.label(this, "Rascunho automático, riscos por atividade, checklist técnico, assinatura e PDF nativo."))
+
+        val row = Ui.row(this)
+        row.addView(miniStat("Status", if (pending.isEmpty()) "Liberada" else "Bloqueada", if (pending.isEmpty()) Ui.GREEN else Ui.RED), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(miniStat("Pendências", pending.size.toString(), if (pending.isEmpty()) Ui.GREEN else Ui.AMBER), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(miniStat("Fotos", data.photoUris.size.toString(), Ui.AMBER), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        hero.addView(row.margin(0, 12.dp()))
+
+        val open = Ui.button(this, "Abrir Permissão de Trabalho")
+        open.setOnClickListener { showPtCentral() }
+        hero.addView(open.margin(0, 8.dp()))
+        return hero
+    }
+
+    private fun miniStat(label: String, value: String, color: Int): LinearLayout {
+        val box = Ui.vbox(this, 10.dp())
+        box.background = Ui.bg(Ui.PANEL, 14.dp(), Ui.BORDER, 1)
+        val valueView = Ui.title(this, value, 18f)
+        valueView.setTextColor(color)
+        box.addView(valueView)
+        box.addView(Ui.label(this, label))
+        return box
+    }
+
+    private fun moduleCard(name: String, index: Int, pending: List<String>): LinearLayout {
+        val primary = name == "Permissão de Trabalho"
+        val card = if (primary) Ui.heroCard(this) else Ui.card(this)
+        val row = Ui.row(this)
+
+        val icon = TextView(this)
+        icon.text = moduleIcon(name)
+        icon.textSize = 28f
+        icon.gravity = Gravity.CENTER
+        icon.background = Ui.bg(if (primary) 0x33F59E0B else Ui.PANEL, 16.dp(), if (primary) Ui.AMBER else Ui.BORDER, 1)
+        row.addView(icon, LinearLayout.LayoutParams(56.dp(), 56.dp()))
+
+        val texts = Ui.vbox(this)
+        texts.setPadding(14.dp(), 0, 0, 0)
+        texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        texts.addView(Ui.title(this, name, if (primary) 20f else 18f))
+        texts.addView(Ui.label(this, moduleSubtitle(name, pending)))
+        row.addView(texts)
+
+        val chipText = if (primary) {
+            if (pending.isEmpty()) "OK" else "${pending.size}"
+        } else {
+            "EM BREVE"
         }
+        val chipColor = if (primary && pending.isEmpty()) Ui.GREEN else if (primary) Ui.RED else Ui.MUTED
+        row.addView(Ui.chip(this, chipText, chipColor))
+
+        card.addView(row)
+        if (primary) {
+            card.addView(Ui.progress(this, ptProgress(), 5).margin(0, 12.dp()))
+        }
+        card.setOnClickListener {
+            if (primary) showPtCentral() else placeholder(name)
+        }
+        card.translationX = if (index % 2 == 0) -10f else 10f
+        card.animate().translationX(0f).setDuration(180L + index * 25L).start()
         return card
+    }
+
+    private fun moduleIcon(name: String): String {
+        return when (name) {
+            "Permissão de Trabalho" -> "PT"
+            "APR" -> "⚠"
+            "DDS" -> "☰"
+            "EPI" -> "◈"
+            "Inspeção" -> "✓"
+            "Ocorrência" -> "!"
+            "Colaboradores" -> "👥"
+            else -> "▣"
+        }
+    }
+
+    private fun moduleSubtitle(name: String, pending: List<String>): String {
+        return when (name) {
+            "Permissão de Trabalho" -> if (pending.isEmpty()) "PT pronta para revisão e emissão" else "${pending.size} pendência(s) antes da emissão"
+            "APR" -> "Análise preliminar de risco"
+            "DDS" -> "Diálogo diário de segurança"
+            "EPI" -> "Controle de entrega e inspeção"
+            "Inspeção" -> "Checklists e evidências de campo"
+            "Ocorrência" -> "Registro rápido de desvios"
+            "Colaboradores" -> "Equipe, funções e histórico"
+            else -> "Indicadores de segurança"
+        }
     }
 
     private fun placeholder(name: String): Unit {
         screen(name, ::showHome) {
-            val card = Ui.card(this@MainActivity)
-            card.addView(Ui.title(this@MainActivity, "Módulo preparado para expansão", 18f))
-            card.addView(Ui.label(this@MainActivity, "Base pronta para evoluir este módulo."))
-            addView(card.margin(6.dp()))
+            val card = Ui.heroCard(this@MainActivity)
+            card.addView(Ui.chip(this@MainActivity, "MÓDULO EM EXPANSÃO", Ui.AMBER))
+            card.addView(Ui.title(this@MainActivity, name, 24f).margin(0, 8.dp()))
+            card.addView(Ui.label(this@MainActivity, "A base visual e técnica já está pronta para evoluir este módulo sem alterar o núcleo da PT."))
+            addView(card.margin(0, 10.dp()))
         }
     }
 
     private fun showPtCentral(): Unit {
         screen("Central da PT", ::showHome) {
             val pending = RiskEngine.pending(data)
-            addView(statusPanel(pending).margin(6.dp()))
-            addView(stepCard("1. Dados do serviço", serviceDone(), ::showServiceData).margin(5.dp()))
-            addView(stepCard("2. Atividades e riscos", risksDone(), ::showRisks).margin(5.dp()))
-            addView(stepCard("3. Checklist de liberação", checklistDone(), ::showChecklist).margin(5.dp()))
-            addView(stepCard("4. Equipe e evidências", teamDone(), ::showTeamEvidence).margin(5.dp()))
-            addView(stepCard("5. Revisão e emissão", pending.isEmpty(), ::showReview).margin(5.dp()))
+            addView(statusPanel(pending).margin(0, 8.dp()))
+            addView(Ui.section(this@MainActivity, "Progresso da permissão").margin(0, 10.dp()))
+            addView(Ui.progress(this@MainActivity, ptProgress(), 5).margin(0, 6.dp()))
+            addView(stepCard("01", "Dados do serviço", "Identificação, local, responsável e vigência", serviceDone(), ::showServiceData).margin(0, 6.dp()))
+            addView(stepCard("02", "Atividades e riscos", "Riscos automáticos e controles obrigatórios", risksDone(), ::showRisks).margin(0, 6.dp()))
+            addView(stepCard("03", "Checklist de liberação", "Itens críticos com Sim, Não ou N/A", checklistDone(), ::showChecklist).margin(0, 6.dp()))
+            addView(stepCard("04", "Equipe e evidências", "Trabalhadores, fotos e assinatura", teamDone(), ::showTeamEvidence).margin(0, 6.dp()))
+            addView(stepCard("05", "Revisão e emissão", "Resumo final, validação e PDF", pending.isEmpty(), ::showReview).margin(0, 6.dp()))
 
-            val reviewButton = Ui.button(this@MainActivity, "Revisar e gerar PDF")
+            val reviewButton = Ui.button(this@MainActivity, "Revisar e gerar PDF", if (pending.isEmpty()) Ui.AMBER else Ui.RED)
             reviewButton.setOnClickListener { showReview() }
-            addView(reviewButton.margin(6.dp()))
+            addView(reviewButton.margin(0, 12.dp()))
 
             val clearButton = Ui.ghostButton(this@MainActivity, "Limpar rascunho")
             clearButton.setOnClickListener { confirmClearDraft() }
-            addView(clearButton.margin(6.dp()))
+            addView(clearButton.margin(0, 4.dp()))
 
-            addView(Ui.title(this@MainActivity, "Últimas PTs emitidas", 18f).margin(8.dp()))
+            addView(Ui.section(this@MainActivity, "Últimas emissões").margin(0, 14.dp()))
             if (data.history.isEmpty()) {
-                addView(Ui.label(this@MainActivity, "Nenhuma PT emitida neste aparelho."))
+                val empty = Ui.card(this@MainActivity)
+                empty.addView(Ui.value(this@MainActivity, "Nenhuma PT emitida neste aparelho."))
+                empty.addView(Ui.label(this@MainActivity, "Quando gerar um PDF, o histórico aparecerá aqui."))
+                addView(empty.margin(0, 5.dp()))
             }
             data.history.take(5).forEach { item ->
                 val historyCard = Ui.card(this@MainActivity)
-                historyCard.addView(Ui.value(this@MainActivity, item.emittedAt))
-                historyCard.addView(Ui.label(this@MainActivity, "${item.place} - ${item.fileName}"))
-                addView(historyCard.margin(4.dp()))
+                historyCard.addView(Ui.chip(this@MainActivity, item.emittedAt, Ui.AMBER))
+                historyCard.addView(Ui.value(this@MainActivity, item.place.ifBlank { "Sem local informado" }))
+                historyCard.addView(Ui.label(this@MainActivity, item.fileName))
+                addView(historyCard.margin(0, 5.dp()))
             }
         }
     }
 
+    private fun ptProgress(): Int {
+        var score = 0
+        if (serviceDone()) score++
+        if (risksDone()) score++
+        if (checklistDone()) score++
+        if (teamDone()) score++
+        if (RiskEngine.pending(data).isEmpty()) score++
+        return score
+    }
+
     private fun statusPanel(pending: List<String>): LinearLayout {
-        val card = Ui.card(this)
+        val card = Ui.heroCard(this)
         val released = pending.isEmpty()
-        val title = Ui.title(this, if (released) "PT LIBERADA" else "PT BLOQUEADA", 20f)
+        card.addView(Ui.chip(this, if (released) "PRONTO PARA EMISSÃO" else "AÇÃO NECESSÁRIA", if (released) Ui.GREEN else Ui.RED))
+        val title = Ui.title(this, if (released) "PT LIBERADA" else "PT BLOQUEADA", 26f)
         title.setTextColor(if (released) Ui.GREEN else Ui.RED)
-        card.addView(title)
-        val subtitle = if (released) "Todas as etapas estão conformes." else "${pending.size} pendência(s) impedem a emissão."
+        card.addView(title.margin(0, 8.dp()))
+        val subtitle = if (released) "Todas as etapas estão conformes. Gere e compartilhe o PDF." else "${pending.size} pendência(s) impedem a emissão da PT."
         card.addView(Ui.label(this, subtitle))
-        pending.take(6).forEach {
-            card.addView(Ui.value(this, "- $it", Ui.RED))
+        if (pending.isNotEmpty()) {
+            card.addView(Ui.divider(this).margin(0, 12.dp()))
+            pending.take(4).forEach {
+                card.addView(Ui.value(this, "• $it", Ui.RED).margin(0, 3.dp()))
+            }
         }
         return card
     }
 
-    private fun stepCard(text: String, done: Boolean, action: () -> Unit): LinearLayout {
+    private fun stepCard(number: String, titleText: String, subtitle: String, done: Boolean, action: () -> Unit): LinearLayout {
         val card = Ui.card(this)
         val row = Ui.row(this)
-        val title = Ui.title(this, text, 17f)
-        title.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        row.addView(title)
-        row.addView(Ui.value(this, if (done) "Conforme" else "Pendente", if (done) Ui.GREEN else Ui.RED))
+
+        val badge = TextView(this)
+        badge.text = number
+        badge.gravity = Gravity.CENTER
+        badge.textSize = 15f
+        badge.setTextColor(if (done) Ui.GREEN else Ui.AMBER)
+        badge.background = Ui.bg(if (done) 0x2222C55E else 0x22F59E0B, 16.dp(), if (done) Ui.GREEN else Ui.AMBER, 1)
+        row.addView(badge, LinearLayout.LayoutParams(48.dp(), 48.dp()))
+
+        val texts = Ui.vbox(this)
+        texts.setPadding(14.dp(), 0, 0, 0)
+        texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        texts.addView(Ui.title(this, titleText, 17f))
+        texts.addView(Ui.label(this, subtitle))
+        row.addView(texts)
+
+        row.addView(Ui.chip(this, if (done) "CONFORME" else "PENDENTE", if (done) Ui.GREEN else Ui.RED))
         card.addView(row)
         card.setOnClickListener { saveAnd(action) }
         return card
@@ -223,6 +348,7 @@ class MainActivity : Activity() {
 
     private fun showServiceData(): Unit {
         screen("Dados do serviço", ::showPtCentral) {
+            addView(Ui.section(this@MainActivity, "Identificação da atividade").margin(0, 8.dp()))
             addInput("Empresa / Planta", data.company) { data.company = it }
             addInput("Área / Setor", data.area) { data.area = it }
             addInput("Local da atividade", data.place) { data.place = it }
@@ -231,25 +357,26 @@ class MainActivity : Activity() {
             addInput("Descrição detalhada da atividade", data.description, true) { data.description = it }
             addInput("Ferramentas / equipamentos", data.tools, true) { data.tools = it }
             addInput("Substâncias / produtos", data.products, true) { data.products = it }
-            addView(timeCard().margin(6.dp()))
+            addView(timeCard().margin(0, 10.dp()))
         }
     }
 
     private fun LinearLayout.addInput(label: String, value: String, multi: Boolean = false, onChange: (String) -> Unit): EditText {
-        addView(Ui.label(this@MainActivity, label).margin(4.dp()))
+        addView(Ui.label(this@MainActivity, label).margin(0, 5.dp()))
         val edit = Ui.input(this@MainActivity, label, multi)
         edit.setText(value)
         edit.addTextChangedListener(SimpleWatcher {
             onChange(edit.text.toString())
             repo.save(data)
         })
-        addView(edit.margin(4.dp()))
+        addView(edit.margin(0, 4.dp()))
         return edit
     }
 
     private fun timeCard(): LinearLayout {
-        val card = Ui.card(this)
-        card.addView(Ui.title(this, "Vigência da PT", 18f))
+        val card = Ui.heroCard(this)
+        card.addView(Ui.chip(this, "DATA E VALIDADE", Ui.AMBER))
+        card.addView(Ui.title(this, "Vigência inteligente", 18f).margin(0, 8.dp()))
         card.addView(Ui.value(this, "Início: ${Ui.fmt(data.startMillis)}\nValidade: ${data.validityHours}h\nTérmino: ${Ui.fmt(data.endMillis)}"))
 
         val validities = Ui.row(this)
@@ -264,15 +391,15 @@ class MainActivity : Activity() {
             }
             validities.addView(button)
         }
-        card.addView(validities)
+        card.addView(validities.margin(0, 8.dp()))
 
-        val now = Ui.button(this, "Agora")
+        val now = Ui.button(this, "Usar horário atual")
         now.setOnClickListener {
             setNow()
             repo.save(data)
             showServiceData()
         }
-        card.addView(now)
+        card.addView(now.margin(0, 6.dp()))
 
         val start = Ui.ghostButton(this, "Escolher início")
         start.setOnClickListener {
@@ -283,9 +410,9 @@ class MainActivity : Activity() {
                 showServiceData()
             }
         }
-        card.addView(start)
+        card.addView(start.margin(0, 4.dp()))
 
-        val end = Ui.ghostButton(this, "Escolher término")
+        val end = Ui.ghostButton(this, "Editar término")
         end.setOnClickListener {
             pickDateTime(data.endMillis) {
                 data.endMillis = it
@@ -293,7 +420,7 @@ class MainActivity : Activity() {
                 showServiceData()
             }
         }
-        card.addView(end)
+        card.addView(end.margin(0, 4.dp()))
         return card
     }
 
@@ -312,19 +439,22 @@ class MainActivity : Activity() {
 
     private fun showRisks(): Unit {
         screen("Atividades e riscos", ::showPtCentral) {
-            addView(Ui.title(this@MainActivity, "Atividades críticas", 18f).margin(4.dp()))
+            addView(Ui.section(this@MainActivity, "Atividades críticas").margin(0, 8.dp()))
             RiskEngine.activities.forEach { activity ->
-                addView(activityRow(activity))
+                addView(activityRow(activity).margin(0, 4.dp()))
             }
             addInput("Atividade manual / complemento", data.manualActivity, true) { data.manualActivity = it }
-            addView(Ui.title(this@MainActivity, "Riscos e controles", 18f).margin(8.dp()))
+            addView(Ui.section(this@MainActivity, "Riscos e controles gerados").margin(0, 12.dp()))
 
             val risks = RiskEngine.risksFor(data)
             if (risks.isEmpty()) {
-                addView(Ui.label(this@MainActivity, "Selecione atividades ou descreva a análise manual para gerar riscos."))
+                val empty = Ui.card(this@MainActivity)
+                empty.addView(Ui.value(this@MainActivity, "Nenhum risco gerado."))
+                empty.addView(Ui.label(this@MainActivity, "Selecione uma atividade ou descreva a atividade manual para gerar controles."))
+                addView(empty.margin(0, 5.dp()))
             }
             risks.forEach { risk ->
-                addView(riskCard(risk).margin(5.dp()))
+                addView(riskCard(risk).margin(0, 6.dp()))
             }
         }
     }
@@ -333,6 +463,9 @@ class MainActivity : Activity() {
         val check = CheckBox(this)
         check.text = activity
         check.setTextColor(Ui.TEXT)
+        check.textSize = 15f
+        check.background = Ui.bg(Ui.CARD, 16.dp(), Ui.BORDER, 1)
+        check.setPadding(14.dp(), 10.dp(), 14.dp(), 10.dp())
         check.isChecked = data.activities.contains(activity)
         check.setOnCheckedChangeListener { _, checked ->
             if (checked) data.activities.add(activity) else data.activities.remove(activity)
@@ -344,9 +477,10 @@ class MainActivity : Activity() {
 
     private fun riskCard(risk: String): LinearLayout {
         val card = Ui.card(this)
-        card.addView(Ui.title(this, risk, 17f))
+        card.addView(Ui.chip(this, "RISCO IDENTIFICADO", Ui.AMBER))
+        card.addView(Ui.title(this, risk, 18f).margin(0, 8.dp()))
         RiskEngine.controls[risk].orEmpty().forEach { control ->
-            card.addView(Ui.label(this, control))
+            card.addView(Ui.label(this, control).margin(0, 5.dp()))
             val key = RiskEngine.controlKey(risk, control)
             val group = answerGroup(data.controls[key].orEmpty()) {
                 data.controls[key] = it
@@ -359,8 +493,9 @@ class MainActivity : Activity() {
 
     private fun showChecklist(): Unit {
         screen("Checklist de liberação", ::showPtCentral) {
+            addView(Ui.section(this@MainActivity, "Pré-requisitos obrigatórios").margin(0, 8.dp()))
             RiskEngine.checklistItems.forEach { item ->
-                addView(checklistCard(item).margin(5.dp()))
+                addView(checklistCard(item).margin(0, 6.dp()))
             }
         }
     }
@@ -397,10 +532,11 @@ class MainActivity : Activity() {
 
     private fun showTeamEvidence(): Unit {
         screen("Equipe e evidências", ::showPtCentral) {
+            addView(Ui.section(this@MainActivity, "Equipe executante").margin(0, 8.dp()))
             val workerName = Ui.input(this@MainActivity, "Nome do trabalhador")
             val workerRole = Ui.input(this@MainActivity, "Função")
-            addView(workerName.margin(4.dp()))
-            addView(workerRole.margin(4.dp()))
+            addView(workerName.margin(0, 4.dp()))
+            addView(workerRole.margin(0, 4.dp()))
 
             val addWorker = Ui.button(this@MainActivity, "Adicionar trabalhador")
             addWorker.setOnClickListener {
@@ -412,13 +548,13 @@ class MainActivity : Activity() {
                     showTeamEvidence()
                 }
             }
-            addView(addWorker.margin(4.dp()))
+            addView(addWorker.margin(0, 8.dp()))
 
             data.workers.forEachIndexed { index, worker ->
-                addView(workerCard(index, worker).margin(4.dp()))
+                addView(workerCard(index, worker).margin(0, 5.dp()))
             }
-            addView(evidenceCard().margin(5.dp()))
-            addView(signatureCard().margin(5.dp()))
+            addView(evidenceCard().margin(0, 8.dp()))
+            addView(signatureCard().margin(0, 8.dp()))
         }
     }
 
@@ -441,7 +577,8 @@ class MainActivity : Activity() {
 
     private fun evidenceCard(): LinearLayout {
         val card = Ui.card(this)
-        card.addView(Ui.title(this, "Evidências", 18f))
+        card.addView(Ui.chip(this, "EVIDÊNCIAS", Ui.AMBER))
+        card.addView(Ui.title(this, "Fotos do local", 18f).margin(0, 8.dp()))
         card.addView(Ui.value(this, "Fotos anexadas: ${data.photoUris.size}"))
         val button = Ui.button(this, "Anexar fotos")
         button.setOnClickListener {
@@ -452,26 +589,27 @@ class MainActivity : Activity() {
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
             startActivityForResult(intent, photoRequest)
         }
-        card.addView(button)
+        card.addView(button.margin(0, 8.dp()))
         return card
     }
 
     private fun signatureCard(): LinearLayout {
-        val card = Ui.card(this)
-        card.addView(Ui.title(this, "Assinatura do responsável", 18f))
+        val card = Ui.heroCard(this)
+        card.addView(Ui.chip(this, "ASSINATURA", if (data.signatureB64.isNotBlank()) Ui.GREEN else Ui.RED))
+        card.addView(Ui.title(this, "Assinatura do responsável", 18f).margin(0, 8.dp()))
         val saved = data.signatureB64.isNotBlank()
-        card.addView(Ui.value(this, "Assinatura do responsável: ${if (saved) "salva" else "pendente"}", if (saved) Ui.GREEN else Ui.RED))
+        card.addView(Ui.value(this, "Status: ${if (saved) "salva" else "pendente"}", if (saved) Ui.GREEN else Ui.RED))
         repo.base64ToBitmap(data.signatureB64)?.let {
             val preview = ImageView(this)
             preview.setImageBitmap(it)
             preview.setBackgroundColor(android.graphics.Color.WHITE)
             preview.adjustViewBounds = true
             preview.maxHeight = 140.dp()
-            card.addView(preview)
+            card.addView(preview.margin(0, 8.dp()))
         }
         val button = Ui.button(this, if (saved) "Reassinar responsável" else "Assinar responsável")
         button.setOnClickListener { openSignatureDialog() }
-        card.addView(button)
+        card.addView(button.margin(0, 8.dp()))
         return card
     }
 
@@ -508,23 +646,24 @@ class MainActivity : Activity() {
     private fun showReview(): Unit {
         screen("Revisão e emissão", ::showPtCentral) {
             val pending = RiskEngine.pending(data)
-            addView(reviewPanel(pending).margin(5.dp()))
+            addView(reviewPanel(pending).margin(0, 6.dp()))
             if (pending.isNotEmpty()) {
-                addView(Ui.title(this@MainActivity, "Pendências", 18f).margin(6.dp()))
-                pending.forEach { addView(Ui.value(this@MainActivity, "- $it", Ui.RED)) }
+                addView(Ui.section(this@MainActivity, "Pendências").margin(0, 10.dp()))
+                pending.forEach { addView(Ui.value(this@MainActivity, "• $it", Ui.RED)) }
             }
             val button = Ui.button(this@MainActivity, "Gerar e compartilhar PDF", if (pending.isEmpty()) Ui.AMBER else Ui.RED)
             button.setOnClickListener { generatePdf() }
-            addView(button.margin(8.dp()))
+            addView(button.margin(0, 12.dp()))
         }
     }
 
     private fun reviewPanel(pending: List<String>): LinearLayout {
-        val card = Ui.card(this)
+        val card = Ui.heroCard(this)
         val released = pending.isEmpty()
-        val status = Ui.title(this, if (released) "PT LIBERADA" else "PT BLOQUEADA", 20f)
+        card.addView(Ui.chip(this, if (released) "EMISSÃO LIBERADA" else "EMISSÃO BLOQUEADA", if (released) Ui.GREEN else Ui.RED))
+        val status = Ui.title(this, if (released) "PT LIBERADA" else "PT BLOQUEADA", 22f)
         status.setTextColor(if (released) Ui.GREEN else Ui.RED)
-        card.addView(status)
+        card.addView(status.margin(0, 8.dp()))
         card.addView(Ui.value(this, "Empresa: ${data.company.ifBlank { "-" }}"))
         card.addView(Ui.value(this, "Local: ${data.place.ifBlank { "-" }}"))
         card.addView(Ui.value(this, "Responsável: ${data.responsible.ifBlank { "-" }}"))
