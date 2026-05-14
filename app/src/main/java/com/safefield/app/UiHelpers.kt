@@ -35,34 +35,11 @@ object Ui {
         if (strokeWidth > 0) setStroke(strokeWidth, strokeColor)
     }
 
-    fun vbox(context: Context, pad: Int = 0): LinearLayout = LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
-        if (pad > 0) setPadding(pad, pad, pad, pad)
-    }
-
-    fun row(context: Context): LinearLayout = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = android.view.Gravity.CENTER_VERTICAL
-    }
-
-    fun title(context: Context, text: String, size: Float = 22f): TextView = TextView(context).apply {
-        this.text = text
-        setTextColor(TEXT)
-        textSize = size
-        typeface = Typeface.DEFAULT_BOLD
-    }
-
-    fun label(context: Context, text: String): TextView = TextView(context).apply {
-        this.text = text
-        setTextColor(MUTED)
-        textSize = 13f
-    }
-
-    fun value(context: Context, text: String, color: Int = TEXT): TextView = TextView(context).apply {
-        this.text = text
-        setTextColor(color)
-        textSize = 15f
-    }
+    fun vbox(context: Context, pad: Int = 0): LinearLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; if (pad > 0) setPadding(pad, pad, pad, pad) }
+    fun row(context: Context): LinearLayout = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL }
+    fun title(context: Context, text: String, size: Float = 22f): TextView = TextView(context).apply { this.text = text; setTextColor(TEXT); textSize = size; typeface = Typeface.DEFAULT_BOLD }
+    fun label(context: Context, text: String): TextView = TextView(context).apply { this.text = text; setTextColor(MUTED); textSize = 13f }
+    fun value(context: Context, text: String, color: Int = TEXT): TextView = TextView(context).apply { this.text = text; setTextColor(color); textSize = 15f }
 
     fun input(context: Context, hint: String, multi: Boolean = false): EditText = EditText(context).apply {
         this.hint = hint
@@ -71,10 +48,7 @@ object Ui {
         textSize = 15f
         background = bg(PANEL, dp(context, 10), 0xFF2B313D.toInt(), 1)
         setPadding(dp(context, 12), dp(context, 8), dp(context, 12), dp(context, 8))
-        if (multi) {
-            minLines = 3
-            gravity = android.view.Gravity.TOP
-        }
+        if (multi) { minLines = 3; gravity = android.view.Gravity.TOP }
     }
 
     fun button(context: Context, text: String, color: Int = AMBER): Button = Button(context).apply {
@@ -87,17 +61,11 @@ object Ui {
         isAllCaps = false
     }
 
-    fun ghostButton(context: Context, text: String): Button = button(context, text, PANEL).apply {
-        setTextColor(TEXT)
-        background = bg(PANEL, dp(context, 12), 0xFF2B313D.toInt(), 1)
-    }
+    fun ghostButton(context: Context, text: String): Button = button(context, text, PANEL).apply { setTextColor(TEXT); background = bg(PANEL, dp(context, 12), 0xFF2B313D.toInt(), 1) }
+    fun card(context: Context): LinearLayout = vbox(context, dp(context, 14)).apply { background = bg(CARD, dp(context, 16), 0xFF252B36.toInt(), 1) }
+}
 
-    fun card(context: Context): LinearLayout = vbox(context, dp(context, 14)).apply {
-        background = bg(CARD, dp(context, 16), 0xFF252B36.toInt(), 1)
-    }
-
-    fun View.margin(all: Int): View {
-        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(all, all, all, all) }
-        return this
-    }
+fun View.margin(all: Int): View {
+    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(all, all, all, all) }
+    return this
 }
