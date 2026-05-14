@@ -16,6 +16,7 @@ class SignaturePadView @JvmOverloads constructor(
 ) : View(context, attrs) {
 
     private val path = Path()
+    private var hasDrawing = false
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.rgb(37, 99, 235)
         style = Paint.Style.STROKE
@@ -35,6 +36,7 @@ class SignaturePadView @JvmOverloads constructor(
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 path.moveTo(event.x, event.y)
+                hasDrawing = true
                 invalidate()
                 return true
             }
@@ -53,8 +55,11 @@ class SignaturePadView @JvmOverloads constructor(
 
     fun clearPad() {
         path.reset()
+        hasDrawing = false
         invalidate()
     }
+
+    fun isEmpty(): Boolean = !hasDrawing
 
     fun exportBitmap(): Bitmap {
         val safeWidth = if (width > 0) width else 1
