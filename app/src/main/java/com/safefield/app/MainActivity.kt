@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.*
+import android.graphics.drawable.GradientDrawable
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.os.Bundle
@@ -19,7 +20,9 @@ import java.io.FileOutputStream
 class MainActivity : Activity() {
     private val amber = Color.rgb(245, 158, 11)
     private val dark = Color.rgb(15, 17, 23)
+    private val shell = Color.rgb(5, 7, 11)
     private val panel = Color.rgb(18, 22, 30)
+    private val cardColor = Color.rgb(24, 28, 36)
     private val textColor = Color.rgb(230, 237, 243)
     private val muted = Color.rgb(156, 163, 175)
     private lateinit var root: LinearLayout
@@ -49,6 +52,16 @@ class MainActivity : Activity() {
         showHome()
     }
 
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+
+    private fun bg(color: Int, radius: Int = 18, strokeColor: Int? = null, strokeWidth: Int = 1): GradientDrawable {
+        return GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(radius).toFloat()
+            if (strokeColor != null) setStroke(dp(strokeWidth), strokeColor)
+        }
+    }
+
     private fun buildShell() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -57,20 +70,32 @@ class MainActivity : Activity() {
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(22, 18, 22, 18)
-            setBackgroundColor(Color.rgb(5, 7, 11))
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+            setBackgroundColor(shell)
         }
+        val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val title = TextView(this).apply {
             setTextColor(amber)
-            textSize = 22f
+            textSize = 30f
             text = "SafeField"
             setTypeface(Typeface.DEFAULT_BOLD)
+            includeFontPadding = false
         }
-        header.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
-        val dash = Button(this).apply { text = "Menu"; setOnClickListener { showHome() } }
-        header.addView(dash)
-        scroll = ScrollView(this)
-        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(18, 18, 18, 28) }
+        val sub = TextView(this).apply {
+            setTextColor(muted)
+            textSize = 13f
+            text = "Segurança do Trabalho em campo"
+            setPadding(0, dp(4), 0, 0)
+        }
+        titleBox.addView(title)
+        titleBox.addView(sub)
+        header.addView(titleBox, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(chipButton("Menu") { showHome() })
+        scroll = ScrollView(this).apply { setBackgroundColor(dark) }
+        content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(18), dp(16), dp(28))
+        }
         scroll.addView(content)
         root.addView(header)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -79,119 +104,211 @@ class MainActivity : Activity() {
 
     private fun clear() { content.removeAllViews(); fields.clear() }
 
-    private fun label(s: String): TextView = TextView(this).apply {
-        text = s
-        textSize = 13f
-        setTextColor(muted)
-        setPadding(0, 14, 0, 5)
+    private fun addTitle(title: String, subtitle: String? = null) {
+        content.addView(TextView(this).apply {
+            text = title
+            textSize = 27f
+            setTextColor(textColor)
+            setTypeface(Typeface.DEFAULT_BOLD)
+            includeFontPadding = false
+            setPadding(0, 0, 0, dp(6))
+        })
+        if (subtitle != null) content.addView(TextView(this).apply {
+            text = subtitle
+            textSize = 14f
+            setTextColor(muted)
+            setPadding(0, 0, 0, dp(14))
+        })
     }
 
-    private fun input(key: String, hint: String, multi: Boolean = false): EditText {
+    private fun card(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = bg(cardColor, 18, Color.rgb(39, 45, 57), 1)
+        setPadding(dp(16), dp(14), dp(16), dp(16))
+    }
+
+    private fun addCard(view: LinearLayout) {
+        val lp = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, dp(12)) }
+        content.addView(view, lp)
+    }
+
+    private fun label(s: String): TextView = TextView(this).apply {
+        text = s
+        textSize = 12f
+        setTextColor(muted)
+        setTypeface(Typeface.DEFAULT_BOLD)
+        setPadding(0, dp(10), 0, dp(5))
+    }
+
+    private fun input(parent: LinearLayout, key: String, hint: String, multi: Boolean = false): EditText {
         val e = EditText(this).apply {
             setTextColor(textColor)
-            setHintTextColor(muted)
+            setHintTextColor(Color.rgb(100, 110, 125))
             setSingleLine(!multi)
             minLines = if (multi) 3 else 1
-            setBackgroundColor(panel)
-            setPadding(14, 10, 14, 10)
+            background = bg(panel, 14, Color.rgb(45, 52, 66), 1)
+            setPadding(dp(14), dp(10), dp(14), dp(10))
             this.hint = hint
+            textSize = 14f
         }
         fields[key] = e
-        content.addView(label(hint))
-        content.addView(e, LinearLayout.LayoutParams(-1, -2))
+        parent.addView(label(hint))
+        parent.addView(e, LinearLayout.LayoutParams(-1, -2))
         return e
     }
 
-    private fun button(s: String, onClick: () -> Unit): Button = Button(this).apply {
+    private fun primaryButton(s: String, onClick: () -> Unit): Button = Button(this).apply {
         text = s
+        textSize = 15f
+        setTextColor(Color.BLACK)
+        setTypeface(Typeface.DEFAULT_BOLD)
+        background = bg(amber, 16)
+        setPadding(dp(12), dp(10), dp(12), dp(10))
         setOnClickListener { onClick() }
     }
 
-    private fun section(s: String) {
-        content.addView(TextView(this).apply {
+    private fun secondaryButton(s: String, onClick: () -> Unit): Button = Button(this).apply {
+        text = s
+        textSize = 14f
+        setTextColor(textColor)
+        background = bg(Color.rgb(28, 33, 43), 16, Color.rgb(49, 57, 72), 1)
+        setPadding(dp(12), dp(10), dp(12), dp(10))
+        setOnClickListener { onClick() }
+    }
+
+    private fun chipButton(s: String, onClick: () -> Unit): Button = Button(this).apply {
+        text = s
+        textSize = 13f
+        setTextColor(amber)
+        setTypeface(Typeface.DEFAULT_BOLD)
+        background = bg(Color.rgb(20, 24, 32), 18, Color.rgb(50, 56, 70), 1)
+        setPadding(dp(12), dp(8), dp(12), dp(8))
+        setOnClickListener { onClick() }
+    }
+
+    private fun section(parent: LinearLayout, s: String) {
+        parent.addView(TextView(this).apply {
             text = s
-            textSize = 18f
+            textSize = 17f
             setTextColor(amber)
             setTypeface(Typeface.DEFAULT_BOLD)
-            setPadding(0, 22, 0, 10)
+            setPadding(0, dp(10), 0, dp(8))
         })
     }
 
     private fun showHome() {
         clear()
-        content.addView(TextView(this).apply {
-            text = "Módulos"
-            textSize = 24f
-            setTextColor(textColor)
-            setTypeface(Typeface.DEFAULT_BOLD)
-        })
-        val modules = listOf("Permissão de Trabalho", "APR", "DDS", "EPI", "Inspeção", "Ocorrência", "Colaboradores", "Dashboard")
-        modules.forEach { m ->
-            content.addView(button(m) { if (m == "Permissão de Trabalho") showPT() else showPlaceholder(m) }, LinearLayout.LayoutParams(-1, -2))
+        addTitle("Módulos", "Base nativa Kotlin • sem WebView • pronta para evoluir")
+        val modules = listOf(
+            Triple("Permissão de Trabalho", "PT inteligente com checklist, riscos, trabalhadores e PDF nativo", true),
+            Triple("APR", "Análise preliminar de riscos", false),
+            Triple("DDS", "Diálogo diário de segurança", false),
+            Triple("EPI", "Controle de entrega e inspeção", false),
+            Triple("Inspeção", "Checklist de campo", false),
+            Triple("Ocorrência", "Registro de desvios, incidentes e ações", false),
+            Triple("Colaboradores", "Cadastro da equipe", false),
+            Triple("Dashboard", "Indicadores do sistema", false)
+        )
+        modules.forEach { item ->
+            val c = card()
+            val name = TextView(this).apply {
+                text = item.first
+                textSize = 18f
+                setTextColor(if (item.third) amber else textColor)
+                setTypeface(Typeface.DEFAULT_BOLD)
+            }
+            val desc = TextView(this).apply {
+                text = item.second
+                textSize = 13f
+                setTextColor(muted)
+                setPadding(0, dp(5), 0, dp(12))
+            }
+            c.addView(name)
+            c.addView(desc)
+            c.addView(if (item.third) primaryButton("Abrir") { showPT() } else secondaryButton("Abrir") { showPlaceholder(item.first) })
+            addCard(c)
         }
     }
 
     private fun showPlaceholder(name: String) {
         clear()
-        section(name)
-        content.addView(TextView(this).apply {
-            text = "Módulo nativo Kotlin preparado. A próxima etapa é detalhar este formulário."
+        addTitle(name, "Módulo nativo preparado para expansão.")
+        val c = card()
+        c.addView(TextView(this).apply {
+            text = "A estrutura Kotlin já está pronta. O próximo passo é transformar este módulo em formulário completo."
             setTextColor(textColor)
             textSize = 15f
         })
-        content.addView(button("Voltar") { showHome() })
+        c.addView(secondaryButton("Voltar ao menu") { showHome() })
+        addCard(c)
     }
 
     private fun showPT() {
         clear()
         photos.clear(); workers.clear(); risks.clear(); checks.clear()
-        section("Permissão de Trabalho")
-        input("empresa", "Empresa / Planta")
-        input("area", "Área / Setor")
-        input("local", "Local da atividade")
-        input("responsavel", "Responsável / Emissor")
-        input("inicio", "Data/Hora início")
-        input("fim", "Data/Hora fim / validade")
-        input("executantes", "Equipe / executantes")
-        input("descricao", "Descrição detalhada da atividade", true)
-        input("ferramentas", "Ferramentas / equipamentos", true)
-        input("produtos", "Substâncias / produtos")
-        section("Tipo de atividade")
+        addTitle("Permissão de Trabalho", "PT nativa com checklist, riscos automáticos e PDF sem páginas brancas")
+
+        val c1 = card(); section(c1, "1. Informações gerais")
+        input(c1, "empresa", "Empresa / Planta")
+        input(c1, "area", "Área / Setor")
+        input(c1, "local", "Local da atividade")
+        input(c1, "responsavel", "Responsável / Emissor")
+        input(c1, "inicio", "Data/Hora início")
+        input(c1, "fim", "Data/Hora fim / validade")
+        input(c1, "executantes", "Equipe / executantes")
+        input(c1, "descricao", "Descrição detalhada da atividade", true)
+        input(c1, "ferramentas", "Ferramentas / equipamentos", true)
+        input(c1, "produtos", "Substâncias / produtos")
+        addCard(c1)
+
+        val c2 = card(); section(c2, "2. Atividade e riscos")
         riskBank.keys.forEach { act ->
             val cb = CheckBox(this).apply {
                 text = act
+                textSize = 14f
                 setTextColor(textColor)
+                buttonTintList = android.content.res.ColorStateList.valueOf(amber)
                 setOnCheckedChangeListener { _, checked ->
                     if (checked) risks.addAll(riskBank[act] ?: emptyList()) else risks.removeAll(riskBank[act] ?: emptyList())
                 }
             }
-            content.addView(cb)
+            c2.addView(cb)
         }
-        input("atividadeManual", "Outra atividade / observação manual", true)
-        section("Checklist de pré-requisitos")
+        input(c2, "atividadeManual", "Outra atividade / observação manual", true)
+        addCard(c2)
+
+        val c3 = card(); section(c3, "3. Checklist de pré-requisitos")
         prereqs().forEachIndexed { i, item ->
             val cb = CheckBox(this).apply {
                 text = item
+                textSize = 14f
                 setTextColor(textColor)
+                buttonTintList = android.content.res.ColorStateList.valueOf(amber)
                 setOnCheckedChangeListener { _, checked -> checks[i] = checked }
             }
-            content.addView(cb)
+            c3.addView(cb)
         }
-        section("Emergência")
-        input("ponto", "Ponto de encontro")
-        input("telefone", "Ramal / telefone de emergência")
-        input("emergencia", "Procedimento de emergência", true)
-        section("Trabalhadores")
-        val workerInput = input("worker", "Nome do trabalhador + função")
-        content.addView(button("Adicionar trabalhador") {
+        addCard(c3)
+
+        val c4 = card(); section(c4, "4. Emergência")
+        input(c4, "ponto", "Ponto de encontro")
+        input(c4, "telefone", "Ramal / telefone de emergência")
+        input(c4, "emergencia", "Procedimento de emergência", true)
+        addCard(c4)
+
+        val c5 = card(); section(c5, "5. Trabalhadores e fotos")
+        val workerInput = input(c5, "worker", "Nome do trabalhador + função")
+        c5.addView(secondaryButton("Adicionar trabalhador") {
             val value = workerInput.text.toString().trim()
             if (value.isNotEmpty()) { workers.add(value); workerInput.setText(""); toast("Trabalhador adicionado") }
         })
-        section("Fotos")
-        content.addView(button("Adicionar foto") { openPhotoChooser() })
-        section("Finalizar")
-        content.addView(button("Gerar e compartilhar PDF") { sharePtPdf() }, LinearLayout.LayoutParams(-1, -2))
-        content.addView(button("Voltar") { showHome() })
+        c5.addView(secondaryButton("Adicionar foto") { openPhotoChooser() })
+        addCard(c5)
+
+        val c6 = card(); section(c6, "6. Finalizar")
+        c6.addView(primaryButton("Gerar e compartilhar PDF") { sharePtPdf() }, LinearLayout.LayoutParams(-1, -2))
+        c6.addView(secondaryButton("Voltar ao menu") { showHome() })
+        addCard(c6)
     }
 
     private fun prereqs() = listOf(
