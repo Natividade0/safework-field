@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'SafeField'
-include ':app'
+rootProject.name = "SafeField"
+include ":app"

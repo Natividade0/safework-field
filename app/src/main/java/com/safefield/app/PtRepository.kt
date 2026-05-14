@@ -1,0 +1,65 @@
+package com.safefield.app
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.ByteArrayOutputStream
+
+class PtRepository(context: Context) {
+    private val prefs = context.getSharedPreferences("safefield_pt", Context.MODE_PRIVATE)
+
+    fun load(): PtData {
+        val json = prefs.getString("draft_json", null) ?: return PtData().also { it.signatureB64 = prefs.getString("signature_b64", "").orEmpty() }
+        return runCatching {
+            val o = JSONObject(json)
+            PtData(
+                company = o.optString("company"), area = o.optString("area"), place = o.optString("place"), responsible = o.optString("responsible"),
+                startMillis = o.optLong("startMillis", System.currentTimeMillis()), validityHours = o.optInt("validityHours", 8),
+                endMillis = o.optLong("endMillis", System.currentTimeMillis() + 8L * 60L * 60L * 1000L), teamName = o.optString("teamName"),
+                description = o.optString("description"), tools = o.optString("tools"), products = o.optString("products"), manualActivity = o.optString("manualActivity"),
+                activities = o.optJSONArray("activities").toStringSet(), checklist = o.optJSONObject("checklist").toStringMap(), controls = o.optJSONObject("controls").toStringMap(),
+                workers = o.optJSONArray("workers").toWorkers(), photoUris = o.optJSONArray("photoUris").toStringList(),
+                signatureB64 = prefs.getString("signature_b64", o.optString("signatureB64")).orEmpty(), history = o.optJSONArray("history").toHistory()
+            )
+        }.getOrElse { PtData() }
+    }
+
+    fun save(data: PtData) {
+        prefs.edit().putString("draft_json", toJson(data).toString()).putString("signature_b64", data.signatureB64).apply()
+    }
+
+    fun clear() { prefs.edit().clear().apply() }
+
+    fun bitmapToBase64(bitmap: Bitmap): String {
+        val out = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+    }
+
+    fun base64ToBitmap(value: String): Bitmap? {
+        if (value.isBlank()) return null
+        return runCatching {
+            val bytes = Base64.decode(value, Base64.NO_WRAP)
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }.getOrNull()
+    }
+
+    private fun toJson(data: PtData): JSONObject = JSONObject().apply {
+        put("company", data.company); put("area", data.area); put("place", data.place); put("responsible", data.responsible)
+        put("startMillis", data.startMillis); put("validityHours", data.validityHours); put("endMillis", data.endMillis)
+        put("teamName", data.teamName); put("description", data.description); put("tools", data.tools); put("products", data.products); put("manualActivity", data.manualActivity)
+        put("activities", JSONArray(data.activities.toList())); put("checklist", JSONObject(data.checklist as Map<*, *>)); put("controls", JSONObject(data.controls as Map<*, *>))
+        put("photoUris", JSONArray(data.photoUris)); put("signatureB64", data.signatureB64)
+        put("workers", JSONArray().also { arr -> data.workers.forEach { arr.put(JSONObject().put("name", it.name).put("role", it.role)) } })
+        put("history", JSONArray().also { arr -> data.history.forEach { arr.put(JSONObject().put("emittedAt", it.emittedAt).put("place", it.place).put("fileName", it.fileName)) } })
+    }
+
+    private fun JSONArray?.toStringSet(): MutableSet<String> { val set = linkedSetOf<String>(); if (this != null) for (i in 0 until length()) set.add(optString(i)); return set }
+    private fun JSONArray?.toStringList(): MutableList<String> { val list = mutableListOf<String>(); if (this != null) for (i in 0 until length()) list.add(optString(i)); return list }
+    private fun JSONObject?.toStringMap(): MutableMap<String, String> { val map = mutableMapOf<String, String>(); if (this != null) { val keys = keys(); while (keys.hasNext()) { val key = keys.next(); map[key] = optString(key) } }; return map }
+    private fun JSONArray?.toWorkers(): MutableList<Worker> { val list = mutableListOf<Worker>(); if (this != null) for (i in 0 until length()) { val o = optJSONObject(i) ?: continue; list.add(Worker(o.optString("name"), o.optString("role"))) }; return list }
+    private fun JSONArray?.toHistory(): MutableList<PtHistoryItem> { val list = mutableListOf<PtHistoryItem>(); if (this != null) for (i in 0 until length()) { val o = optJSONObject(i) ?: continue; list.add(PtHistoryItem(o.optString("emittedAt"), o.optString("place"), o.optString("fileName"))) }; return list }
+}
