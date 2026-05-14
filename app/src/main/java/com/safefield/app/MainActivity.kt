@@ -29,6 +29,7 @@ class MainActivity : Activity() {
     private lateinit var repo: PtRepository
     private lateinit var data: PtData
     private val photoRequest: Int = 7001
+    private var currentBack: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?): Unit {
         super.onCreate(savedInstanceState)
@@ -41,6 +42,15 @@ class MainActivity : Activity() {
     override fun onPause(): Unit {
         super.onPause()
         repo.save(data)
+    }
+
+    override fun onBackPressed(): Unit {
+        val back = currentBack
+        if (back != null) {
+            saveAnd(back)
+        } else {
+            super.onBackPressed()
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, resultData: Intent?): Unit {
@@ -75,6 +85,7 @@ class MainActivity : Activity() {
     }
 
     private fun screen(title: String, back: (() -> Unit)? = null, body: LinearLayout.() -> Unit): Unit {
+        currentBack = back
         val scroll = ScrollView(this)
         scroll.setBackgroundColor(Ui.SHELL)
         scroll.isFillViewport = true
