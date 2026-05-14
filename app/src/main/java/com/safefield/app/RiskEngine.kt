@@ -64,27 +64,7 @@ object RiskEngine {
 
     fun controlKey(risk: String, control: String): String = "$risk|$control"
 
-    fun pending(data: PtData): List<String> {
-        val p = mutableListOf<String>()
-        val fields = mutableListOf<String>()
-        if (data.company.isBlank()) fields.add("Empresa / Planta")
-        if (data.place.isBlank()) fields.add("Local da atividade")
-        if (data.responsible.isBlank()) fields.add("Responsável / Emissor")
-        if (data.startMillis <= 0L) fields.add("Início")
-        if (data.endMillis <= 0L) fields.add("Término")
-        if (data.description.isBlank()) fields.add("Descrição detalhada")
-        if (fields.isNotEmpty()) p.add("Campos obrigatórios pendentes: ${fields.joinToString(", ")}")
-        if (data.activities.isEmpty() && data.manualActivity.isBlank()) p.add("Informe ao menos uma atividade crítica ou análise manual")
-        if (data.workers.isEmpty()) p.add("Adicione ao menos um trabalhador")
-        if (data.signatureB64.isBlank()) p.add("Assinatura do responsável pendente")
-        if (checklistItems.any { data.checklist[it].isNullOrBlank() }) p.add("Checklist possui itens sem resposta")
-        if (checklistItems.any { data.checklist[it] == NO }) p.add("Há item marcado como Não no checklist")
-        val hasControlPending = risksFor(data).any { risk ->
-            controls[risk].orEmpty().any { control -> data.controls[controlKey(risk, control)].isNullOrBlank() }
-        }
-        if (hasControlPending) p.add("Há medidas de controle sem resposta")
-        return p
-    }
+    fun pending(data: PtData): List<String> = PtFlowEngine.flow(data).allPending.map { it.message }
 
-    fun isReleased(data: PtData): Boolean = pending(data).isEmpty()
+    fun isReleased(data: PtData): Boolean = PtFlowEngine.flow(data).canEmit
 }
