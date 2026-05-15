@@ -118,13 +118,15 @@ class MainActivity : Activity() {
 
     private fun showHome(): Unit {
         screen("SafeField") {
-            val pending = RiskEngine.pending(data)
-            addView(homeHero(pending).margin(0, 10.dp()))
-            addView(Ui.section(this@MainActivity, "Módulos de campo").margin(0, 10.dp()))
-            val modules = listOf("Permissão de Trabalho", "APR", "DDS", "EPI", "Inspeção", "Ocorrência", "Colaboradores", "Dashboard")
-            modules.forEachIndexed { index, name ->
-                addView(moduleCard(name, index, pending).margin(0, 7.dp()))
-            }
+            HomeDashboard(
+                activity = this@MainActivity,
+                data = data,
+                openPt = { saveAnd(::showPtCentral) },
+                openPlaceholder = { name -> placeholder(name) },
+                openPending = { showPtCentral() },
+                openHistory = { showPtCentral() },
+                openModules = { showHome() }
+            ).renderInto(this)
         }
     }
 
