@@ -1,9 +1,7 @@
 package com.safefield.app
 
 import android.view.Gravity
-import android.view.View
 import android.view.ViewGroup
-import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 
@@ -19,154 +17,134 @@ internal class PtCentralDashboard(
 ) {
     fun renderInto(container: LinearLayout): Unit {
         val flow = PtFlowEngine.flow(data)
-        container.addView(operationPanel(flow).margin(0, 8.dp()))
-        container.addView(primaryAction(flow).margin(0, 8.dp()))
-        container.addView(pendingBlocks(flow).margin(0, 8.dp()))
-        container.addView(flowMap(flow).margin(0, 8.dp()))
-        container.addView(activitySummary(flow).margin(0, 8.dp()))
-        container.addView(historyBlock().margin(0, 8.dp()))
+        container.addView(documentHeader(flow).margin(0, 8.dp()))
+        container.addView(nextStepCard(flow).margin(0, 8.dp()))
+        container.addView(sectionsCard(flow).margin(0, 8.dp()))
+        container.addView(pendingSummary(flow).margin(0, 8.dp()))
+        container.addView(historyCard().margin(0, 8.dp()))
         val clear = Ui.ghostButton(activity, "Limpar rascunho")
         clear.setOnClickListener { clearDraft() }
         container.addView(clear.margin(0, 8.dp()))
     }
 
-    private fun operationPanel(flow: PtFlowState): LinearLayout {
+    private fun documentHeader(flow: PtFlowState): LinearLayout {
         val card = Ui.heroCard(activity)
-        val statusColor = statusColor(flow.status)
+        val color = statusColor(flow.status)
         val top = Ui.row(activity)
-        val titleBox = Ui.vbox(activity)
-        titleBox.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        titleBox.addView(Ui.label(activity, "Permissão de Trabalho"))
-        titleBox.addView(Ui.title(activity, flow.number, 24f))
-        top.addView(titleBox)
-        top.addView(Ui.chip(activity, flow.status.name, statusColor))
+        val numberBox = Ui.vbox(activity)
+        numberBox.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        numberBox.addView(Ui.label(activity, "Permissão de Trabalho Digital"))
+        numberBox.addView(Ui.title(activity, flow.number, 24f))
+        top.addView(numberBox)
+        top.addView(Ui.chip(activity, statusLabel(flow.status), color))
         card.addView(top)
 
-        val headline = Ui.title(activity, statusMessage(flow.status), 22f)
-        headline.setTextColor(statusColor)
-        card.addView(headline.margin(0, 10.dp()))
-        card.addView(Ui.value(activity, flow.validityLabel, if (flow.status == PtStatus.EXPIRADA) Ui.RED else Ui.TEXT).margin(0, 3.dp()))
+        val message = Ui.title(activity, statusMessage(flow.status), 20f)
+        message.setTextColor(color)
+        card.addView(message.margin(0, 10.dp()))
+        card.addView(Ui.value(activity, flow.validityLabel, if (flow.status == PtStatus.EXPIRADA) Ui.RED else Ui.TEXT).margin(0, 4.dp()))
         flow.validityAlert?.let { card.addView(Ui.value(activity, it, Ui.AMBER_SOFT).margin(0, 3.dp())) }
         card.addView(Ui.divider(activity).margin(0, 12.dp()))
 
-        val grid = GridLayout(activity)
-        grid.columnCount = 2
-        listOf(
-            "Empresa" to data.company.ifBlank { "pendente" },
-            "Local" to data.place.ifBlank { "pendente" },
-            "Responsável" to data.responsible.ifBlank { "pendente" },
-            "Atividade" to activityMain(),
-            "Início" to Ui.fmt(data.startMillis),
-            "Término" to Ui.fmt(data.endMillis)
-        ).forEach { item ->
-            val tile = infoTile(item.first, item.second)
-            tile.layoutParams = gridParams()
-            grid.addView(tile)
-        }
-        card.addView(grid.margin(0, 2.dp()))
+        card.addView(infoLine("Empresa / Planta", data.company.ifBlank { "pendente" }))
+        card.addView(infoLine("Local da atividade", data.place.ifBlank { "pendente" }))
+        card.addView(infoLine("Responsável / Emissor", data.responsible.ifBlank { "pendente" }))
+        card.addView(infoLine("Atividade principal", mainActivity()).margin(0, 0.dp()))
+        card.addView(infoLine("Início", Ui.fmt(data.startMillis)))
+        card.addView(infoLine("Fim", Ui.fmt(data.endMillis)))
         return card
     }
 
-    private fun primaryAction(flow: PtFlowState): LinearLayout {
+    private fun nextStepCard(flow: PtFlowState): LinearLayout {
         val card = Ui.card(activity)
-        card.addView(Ui.section(activity, "Próxima ação"))
-        card.addView(Ui.value(activity, nextActionHint(flow), Ui.TEXT).margin(0, 8.dp()))
+        card.addView(Ui.section(activity, "Próximo passo"))
+        card.addView(Ui.value(activity, nextStepText(flow), Ui.TEXT).margin(0, 8.dp()))
         val color = if (flow.canEmit) Ui.GREEN else if (flow.status == PtStatus.EXPIRADA) Ui.RED else Ui.AMBER
-        val button = Ui.button(activity, flow.primaryAction, color)
+        val button = Ui.button(activity, buttonText(flow), color)
         button.setOnClickListener { openTarget(flow.nextTarget) }
         card.addView(button.margin(0, 8.dp()))
         return card
     }
 
-    private fun pendingBlocks(flow: PtFlowState): LinearLayout {
-        val box = Ui.vbox(activity)
-        if (flow.critical.isEmpty() && flow.important.isEmpty()) {
-            val ok = Ui.card(activity)
-            ok.addView(Ui.chip(activity, "LIBERADO", Ui.GREEN))
-            ok.addView(Ui.title(activity, "Tudo pronto para emissão", 20f).margin(0, 8.dp()))
-            ok.addView(Ui.label(activity, "Nenhuma pendência impede a emissão da PT."))
-            box.addView(ok)
-            return box
-        }
-        if (flow.critical.isNotEmpty()) {
-            box.addView(pendingGroup("Pendências críticas", "Bloqueiam a emissão da PT", flow.critical, Ui.RED).margin(0, 6.dp()))
-        }
-        if (flow.important.isNotEmpty()) {
-            box.addView(pendingGroup("Pendências importantes", "Orientam o preenchimento e evidências", flow.important, Ui.AMBER).margin(0, 6.dp()))
-        }
-        return box
-    }
-
-    private fun pendingGroup(title: String, subtitle: String, items: List<PendingItem>, color: Int): LinearLayout {
+    private fun sectionsCard(flow: PtFlowState): LinearLayout {
         val card = Ui.card(activity)
-        card.addView(Ui.chip(activity, title.uppercase(), color))
-        card.addView(Ui.label(activity, subtitle).margin(0, 8.dp()))
-        items.forEach { item ->
-            val row = Ui.row(activity)
-            val dot = TextView(activity)
-            dot.text = "!"
-            dot.gravity = Gravity.CENTER
-            dot.setTextColor(color)
-            dot.background = Ui.bg(0x0012161E, 999.dp(), color, 1)
-            row.addView(dot, LinearLayout.LayoutParams(28.dp(), 28.dp()))
-            val message = Ui.value(activity, item.message, Ui.TEXT)
-            message.setPadding(10.dp(), 0, 0, 0)
-            message.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            row.addView(message)
-            row.setOnClickListener { openTarget(item.target) }
-            card.addView(row.margin(0, 5.dp()))
-        }
+        card.addView(Ui.section(activity, "Seções da PT"))
+        card.addView(Ui.label(activity, "Preencha como uma permissão digital: seção por seção, sem painel confuso.").margin(0, 6.dp()))
+        card.addView(sectionRow("1", "Informações Gerais", sectionStatus(PtTarget.DADOS, flow), sectionHint(PtTarget.DADOS, flow), openData).margin(0, 6.dp()))
+        card.addView(sectionRow("2", "Lista Geral de Verificação", sectionStatus(PtTarget.CHECKLIST, flow), sectionHint(PtTarget.CHECKLIST, flow), openChecklist).margin(0, 6.dp()))
+        card.addView(sectionRow("3", "Riscos e Medidas de Controle", sectionStatus(PtTarget.RISCOS, flow), sectionHint(PtTarget.RISCOS, flow), openRisks).margin(0, 6.dp()))
+        card.addView(sectionRow("4", "Emergência e Observações", sectionStatus(PtTarget.DADOS, flow), "Ponto de emergência, observações e condições do serviço", openData).margin(0, 6.dp()))
+        card.addView(sectionRow("5", "Envolvidos e Assinaturas", sectionStatus(PtTarget.EQUIPE, flow), sectionHint(PtTarget.EQUIPE, flow), openTeam).margin(0, 6.dp()))
+        card.addView(sectionRow("6", "Evidência Fotográfica", evidenceStatus(), evidenceHint(), openTeam).margin(0, 6.dp()))
+        card.addView(sectionRow("7", "Revisar e Emitir", sectionStatus(PtTarget.REVISAO, flow), sectionHint(PtTarget.REVISAO, flow), openReview).margin(0, 6.dp()))
         return card
     }
 
-    private fun flowMap(flow: PtFlowState): LinearLayout {
-        val card = Ui.card(activity)
-        card.addView(Ui.section(activity, "Fluxo da liberação"))
-        card.addView(Ui.label(activity, "Siga a etapa indicada até a PT ficar liberada para emissão.").margin(0, 6.dp()))
-        card.addView(Ui.progress(activity, doneCount(flow), 5).margin(0, 8.dp()))
-        card.addView(stepCard("01", "Dados", stepStatus(PtTarget.DADOS, flow), stepHint(PtTarget.DADOS, flow), openData).margin(0, 5.dp()))
-        card.addView(stepCard("02", "Riscos", stepStatus(PtTarget.RISCOS, flow), stepHint(PtTarget.RISCOS, flow), openRisks).margin(0, 5.dp()))
-        card.addView(stepCard("03", "Checklist", stepStatus(PtTarget.CHECKLIST, flow), stepHint(PtTarget.CHECKLIST, flow), openChecklist).margin(0, 5.dp()))
-        card.addView(stepCard("04", "Equipe", stepStatus(PtTarget.EQUIPE, flow), stepHint(PtTarget.EQUIPE, flow), openTeam).margin(0, 5.dp()))
-        card.addView(stepCard("05", "Revisão", stepStatus(PtTarget.REVISAO, flow), stepHint(PtTarget.REVISAO, flow), openReview).margin(0, 5.dp()))
-        return card
-    }
-
-    private fun stepCard(number: String, title: String, status: StepState, hint: String, action: () -> Unit): LinearLayout {
-        val card = Ui.card(activity)
-        card.setPadding(12.dp(), 12.dp(), 12.dp(), 12.dp())
-        val row = Ui.row(activity)
+    private fun sectionRow(number: String, title: String, status: SectionState, hint: String, action: () -> Unit): LinearLayout {
+        val row = Ui.card(activity)
+        row.setPadding(12.dp(), 12.dp(), 12.dp(), 12.dp())
+        val line = Ui.row(activity)
         val badge = TextView(activity)
         badge.text = number
         badge.gravity = Gravity.CENTER
-        badge.textSize = 14f
+        badge.textSize = 16f
         badge.setTextColor(status.color)
-        badge.background = Ui.bg(Ui.PANEL, 16.dp(), status.color, 1)
-        row.addView(badge, LinearLayout.LayoutParams(46.dp(), 46.dp()))
-        val texts = Ui.vbox(activity)
-        texts.setPadding(12.dp(), 0, 0, 0)
-        texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        texts.addView(Ui.value(activity, title, Ui.TEXT))
-        texts.addView(Ui.label(activity, hint))
-        row.addView(texts)
-        row.addView(Ui.chip(activity, status.label, status.color))
-        card.addView(row)
-        card.setOnClickListener { action() }
-        return card
+        badge.background = Ui.bg(Ui.PANEL, 14.dp(), status.color, 1)
+        line.addView(badge, LinearLayout.LayoutParams(42.dp(), 42.dp()))
+
+        val textBox = Ui.vbox(activity)
+        textBox.setPadding(12.dp(), 0, 0, 0)
+        textBox.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        textBox.addView(Ui.value(activity, title, Ui.TEXT))
+        textBox.addView(Ui.label(activity, hint))
+        line.addView(textBox)
+        line.addView(Ui.chip(activity, status.label, status.color))
+        row.addView(line)
+        row.setOnClickListener { action() }
+        return row
     }
 
-    private fun activitySummary(flow: PtFlowState): LinearLayout {
+    private fun pendingSummary(flow: PtFlowState): LinearLayout {
         val card = Ui.card(activity)
-        card.addView(Ui.section(activity, "Resumo da atividade"))
-        card.addView(summaryLine("O que será feito", data.description.ifBlank { "pendente" }).margin(0, 6.dp()))
-        card.addView(summaryLine("Onde será feito", data.place.ifBlank { "pendente" }).margin(0, 4.dp()))
-        card.addView(summaryLine("Quem libera", data.responsible.ifBlank { "pendente" }).margin(0, 4.dp()))
-        card.addView(summaryLine("Quem executa", if (data.workers.isEmpty()) "pendente" else "${data.workers.size} trabalhador(es)").margin(0, 4.dp()))
-        card.addView(summaryLine("Até quando vale", flow.validityLabel).margin(0, 4.dp()))
+        if (flow.critical.isEmpty() && flow.important.isEmpty()) {
+            card.addView(Ui.chip(activity, "LIBERADA", Ui.GREEN))
+            card.addView(Ui.title(activity, "PT pronta para emissão", 20f).margin(0, 8.dp()))
+            card.addView(Ui.label(activity, "Todas as seções obrigatórias foram preenchidas."))
+            return card
+        }
+        card.addView(Ui.section(activity, "Pendências"))
+        if (flow.critical.isNotEmpty()) {
+            card.addView(Ui.chip(activity, "CRÍTICAS", Ui.RED).margin(0, 8.dp()))
+            flow.critical.take(4).forEach { item ->
+                card.addView(pendingLine(item.message, Ui.RED, item.target).margin(0, 4.dp()))
+            }
+        }
+        if (flow.important.isNotEmpty()) {
+            card.addView(Ui.chip(activity, "IMPORTANTES", Ui.AMBER).margin(0, 10.dp()))
+            flow.important.take(4).forEach { item ->
+                card.addView(pendingLine(item.message, Ui.AMBER, item.target).margin(0, 4.dp()))
+            }
+        }
         return card
     }
 
-    private fun historyBlock(): LinearLayout {
+    private fun pendingLine(message: String, color: Int, target: PtTarget): LinearLayout {
+        val row = Ui.row(activity)
+        val mark = TextView(activity)
+        mark.text = "!"
+        mark.gravity = Gravity.CENTER
+        mark.setTextColor(color)
+        mark.background = Ui.bg(Ui.PANEL, 999.dp(), color, 1)
+        row.addView(mark, LinearLayout.LayoutParams(28.dp(), 28.dp()))
+        val text = Ui.value(activity, message, Ui.TEXT)
+        text.setPadding(10.dp(), 0, 0, 0)
+        text.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        row.addView(text)
+        row.setOnClickListener { openTarget(target) }
+        return row
+    }
+
+    private fun historyCard(): LinearLayout {
         val card = Ui.card(activity)
         card.addView(Ui.section(activity, "Histórico"))
         val last = data.history.firstOrNull()
@@ -180,22 +158,44 @@ internal class PtCentralDashboard(
         return card
     }
 
-    private fun summaryLine(label: String, value: String): LinearLayout {
+    private fun infoLine(label: String, value: String): LinearLayout {
         val row = Ui.row(activity)
         val left = Ui.label(activity, label)
         left.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         row.addView(left)
-        val color = if (value == "pendente") Ui.RED else Ui.TEXT
-        row.addView(Ui.value(activity, value, color))
+        row.addView(Ui.value(activity, value, if (value == "pendente") Ui.RED else Ui.TEXT))
         return row
     }
 
-    private fun infoTile(label: String, value: String): LinearLayout {
-        val tile = Ui.vbox(activity, 10.dp())
-        tile.background = Ui.bg(Ui.SHELL, 14.dp(), Ui.BORDER, 1)
-        tile.addView(Ui.label(activity, label))
-        tile.addView(Ui.value(activity, value, if (value == "pendente") Ui.RED else Ui.TEXT))
-        return tile
+    private fun sectionStatus(target: PtTarget, flow: PtFlowState): SectionState {
+        val hasCritical = flow.critical.any { it.target == target }
+        val hasImportant = flow.important.any { it.target == target }
+        return when {
+            hasCritical -> SectionState("BLOQUEIA", Ui.RED)
+            hasImportant -> SectionState("PENDENTE", Ui.AMBER)
+            else -> SectionState("OK", Ui.GREEN)
+        }
+    }
+
+    private fun sectionHint(target: PtTarget, flow: PtFlowState): String {
+        val pending = flow.allPending.firstOrNull { it.target == target }
+        if (pending != null) return pending.message
+        return when (target) {
+            PtTarget.DADOS -> "Empresa, local, responsável, descrição e validade"
+            PtTarget.RISCOS -> "Riscos e controles respondidos"
+            PtTarget.CHECKLIST -> "Lista geral respondida"
+            PtTarget.EQUIPE -> "Equipe e assinatura registradas"
+            PtTarget.REVISAO -> if (flow.canEmit) "Pronto para emitir PDF" else "Revise as pendências"
+            PtTarget.VALIDADE -> flow.validityLabel
+        }
+    }
+
+    private fun evidenceStatus(): SectionState {
+        return if (data.photoUris.isEmpty()) SectionState("OPCIONAL", Ui.AMBER) else SectionState("OK", Ui.GREEN)
+    }
+
+    private fun evidenceHint(): String {
+        return if (data.photoUris.isEmpty()) "Sem fotos anexadas" else "${data.photoUris.size} foto(s) anexada(s)"
     }
 
     private fun openTarget(target: PtTarget): Unit {
@@ -210,53 +210,38 @@ internal class PtCentralDashboard(
 
     private fun statusMessage(status: PtStatus): String {
         return when (status) {
-            PtStatus.RASCUNHO -> "PT EM RASCUNHO — CONTINUE O PREENCHIMENTO"
+            PtStatus.RASCUNHO -> "PT EM RASCUNHO"
             PtStatus.BLOQUEADA -> "PT BLOQUEADA — NÃO EMITIR"
             PtStatus.LIBERADA -> "PT LIBERADA PARA EMISSÃO"
             PtStatus.EXPIRADA -> "PT EXPIRADA — RENOVE A VALIDADE"
         }
     }
 
-    private fun nextActionHint(flow: PtFlowState): String {
+    private fun statusLabel(status: PtStatus): String {
+        return when (status) {
+            PtStatus.RASCUNHO -> "RASCUNHO"
+            PtStatus.BLOQUEADA -> "BLOQUEADA"
+            PtStatus.LIBERADA -> "LIBERADA"
+            PtStatus.EXPIRADA -> "EXPIRADA"
+        }
+    }
+
+    private fun buttonText(flow: PtFlowState): String {
+        return if (flow.canEmit) "Revisar e emitir PT" else flow.primaryAction
+    }
+
+    private fun nextStepText(flow: PtFlowState): String {
         return when (flow.nextTarget) {
-            PtTarget.DADOS -> "Complete empresa, local, responsável e descrição da atividade."
-            PtTarget.RISCOS -> "Valide a atividade crítica e responda os controles de risco."
-            PtTarget.CHECKLIST -> "Responda todos os itens e corrija qualquer item marcado como Não."
-            PtTarget.EQUIPE -> "Adicione trabalhador, evidências e assinatura do responsável."
-            PtTarget.VALIDADE -> "A PT venceu. Ajuste início, validade ou término antes de emitir."
-            PtTarget.REVISAO -> "Revise os dados finais e gere o PDF da Permissão de Trabalho."
+            PtTarget.DADOS -> "Comece pelas informações gerais da atividade."
+            PtTarget.RISCOS -> "Confira os riscos e marque as medidas de controle."
+            PtTarget.CHECKLIST -> "Responda a lista geral de verificação."
+            PtTarget.EQUIPE -> "Registre envolvidos, assinaturas e evidências."
+            PtTarget.VALIDADE -> "Ajuste a validade antes de continuar."
+            PtTarget.REVISAO -> "Revise a PT e gere o PDF."
         }
     }
 
-    private fun stepHint(target: PtTarget, flow: PtFlowState): String {
-        val blocking = flow.allPending.firstOrNull { it.target == target }
-        if (blocking != null) return blocking.message
-        return when (target) {
-            PtTarget.DADOS -> "Dados mínimos preenchidos"
-            PtTarget.RISCOS -> "Riscos controlados"
-            PtTarget.CHECKLIST -> "Checklist conforme"
-            PtTarget.EQUIPE -> "Equipe e assinatura conforme"
-            PtTarget.REVISAO -> if (flow.canEmit) "Pronto para emitir PDF" else "Corrija pendências antes de emitir"
-            PtTarget.VALIDADE -> flow.validityLabel
-        }
-    }
-
-    private fun stepStatus(target: PtTarget, flow: PtFlowState): StepState {
-        val hasCritical = flow.critical.any { it.target == target }
-        val hasImportant = flow.important.any { it.target == target }
-        return when {
-            hasCritical -> StepState("BLOQUEADO", Ui.RED)
-            hasImportant -> StepState("ATENÇÃO", Ui.AMBER)
-            else -> StepState("CONFORME", Ui.GREEN)
-        }
-    }
-
-    private fun doneCount(flow: PtFlowState): Int {
-        return listOf(PtTarget.DADOS, PtTarget.RISCOS, PtTarget.CHECKLIST, PtTarget.EQUIPE, PtTarget.REVISAO)
-            .count { stepStatus(it, flow).label == "CONFORME" }
-    }
-
-    private fun activityMain(): String {
+    private fun mainActivity(): String {
         return when {
             data.activities.isNotEmpty() -> data.activities.first()
             data.manualActivity.isNotBlank() -> data.manualActivity
@@ -272,15 +257,6 @@ internal class PtCentralDashboard(
         }
     }
 
-    private fun gridParams(): GridLayout.LayoutParams {
-        val params = GridLayout.LayoutParams()
-        params.width = 0
-        params.height = ViewGroup.LayoutParams.WRAP_CONTENT
-        params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-        params.setMargins(5.dp(), 5.dp(), 5.dp(), 5.dp())
-        return params
-    }
-
-    private data class StepState(val label: String, val color: Int)
+    private data class SectionState(val label: String, val color: Int)
     private fun Int.dp(): Int = Ui.dp(activity, this)
 }
