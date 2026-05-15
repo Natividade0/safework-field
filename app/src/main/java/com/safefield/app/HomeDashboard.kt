@@ -23,7 +23,7 @@ internal class HomeDashboard(
 
     fun renderInto(container: LinearLayout): Unit {
         val flow = PtFlowEngine.flow(data)
-        container.addView(header().margin(0, 10.dp()))
+        container.addView(header(flow).margin(0, 8.dp()))
         container.addView(mainPtCard(flow).margin(0, 8.dp()))
         container.addView(indicators(flow).margin(0, 6.dp()))
         container.addView(miniDashboard(flow).margin(0, 8.dp()))
@@ -41,29 +41,27 @@ internal class HomeDashboard(
         return grid
     }
 
-    private fun header(): LinearLayout {
-        val hero = Ui.heroCard(activity)
+    private fun header(flow: PtFlowState): LinearLayout {
+        val card = Ui.card(activity)
         val top = Ui.row(activity)
-        val titleBox = Ui.vbox(activity)
-        val accent = View(activity)
-        accent.background = Ui.bg(Ui.AMBER, 999.dp())
-        titleBox.addView(accent, LinearLayout.LayoutParams(72.dp(), 4.dp()).apply {
-            setMargins(0, 0, 0, 14.dp())
-        })
-        val brand = Ui.title(activity, "SAFEFIELD", 30f)
-        brand.setTextColor(Ui.AMBER_SOFT)
-        titleBox.addView(brand)
-        titleBox.addView(Ui.value(activity, "Segurança do Trabalho em Campo", Ui.TEXT))
-        titleBox.addView(Ui.label(activity, "Dashboard operacional para emissão e acompanhamento de PTs em campo."))
-        titleBox.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        top.addView(titleBox)
+        top.gravity = Gravity.CENTER_VERTICAL
 
-        val menu = Ui.ghostButton(activity, "Menu")
-        menu.layoutParams = LinearLayout.LayoutParams(92.dp(), 48.dp())
+        val menu = Ui.ghostButton(activity, "☰")
+        menu.textSize = 24f
+        menu.layoutParams = LinearLayout.LayoutParams(52.dp(), 52.dp())
         menu.setOnClickListener { showMenuDialog() }
         top.addView(menu)
-        hero.addView(top)
-        return hero
+
+        val info = Ui.vbox(activity)
+        info.setPadding(14.dp(), 0, 0, 0)
+        info.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        info.addView(Ui.label(activity, "Painel de campo"))
+        info.addView(Ui.value(activity, "Acompanhe a PT atual e acesse os módulos pelo menu.", Ui.TEXT))
+        top.addView(info)
+
+        top.addView(Ui.chip(activity, flow.status.name, statusColor(flow.status)))
+        card.addView(top)
+        return card
     }
 
     private fun mainPtCard(flow: PtFlowState): LinearLayout {
@@ -110,7 +108,7 @@ internal class HomeDashboard(
 
     private fun miniDashboard(flow: PtFlowState): LinearLayout {
         val card = Ui.card(activity)
-        card.addView(sectionTitle("Mini dashboard"))
+        card.addView(sectionTitle("Dashboard da PT"))
         card.addView(summaryRow("Status da PT", flow.status.name, statusColor(flow.status)).margin(0, 8.dp()))
         card.addView(summaryRow("Validade", flow.validityLabel, Ui.TEXT).margin(0, 4.dp()))
         card.addView(summaryRow("Fotos", data.photoUris.size.toString(), Ui.AMBER_SOFT).margin(0, 4.dp()))
@@ -168,7 +166,7 @@ internal class HomeDashboard(
             "Continuar PT" to View.OnClickListener { openPt() },
             "Ver pendências" to View.OnClickListener { openPending(flow) },
             "Histórico" to View.OnClickListener { openHistory() },
-            "Menu" to View.OnClickListener { showMenuDialog() }
+            "Módulos" to View.OnClickListener { showMenuDialog() }
         ).forEach { shortcut ->
             val button = Ui.ghostButton(activity, shortcut.first)
             button.setOnClickListener(shortcut.second)
@@ -183,8 +181,16 @@ internal class HomeDashboard(
         val dialog = AlertDialog.Builder(activity).create()
         val panel = Ui.vbox(activity, 16.dp())
         panel.background = Ui.bg(Ui.PANEL, 24.dp(), Ui.BORDER, 1)
-        panel.addView(Ui.chip(activity, "MENU SAFEFIELD", Ui.AMBER))
-        panel.addView(Ui.title(activity, "Módulos", 22f).margin(0, 10.dp()))
+
+        val top = Ui.row(activity)
+        top.gravity = Gravity.CENTER_VERTICAL
+        val menuTitle = Ui.vbox(activity)
+        menuTitle.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        menuTitle.addView(Ui.chip(activity, "☰ MENU", Ui.AMBER))
+        menuTitle.addView(Ui.title(activity, "Módulos", 22f).margin(0, 10.dp()))
+        top.addView(menuTitle)
+        panel.addView(top)
+
         panel.addView(Ui.label(activity, "Acesse os módulos de campo e áreas preparadas para expansão."))
         panel.addView(menuItem("Permissão de Trabalho", "Abrir fluxo completo", "PT") {
             dialog.dismiss()
