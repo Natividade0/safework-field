@@ -1,6 +1,11 @@
 package com.safefield.app
 
-data class Worker(val name: String, val role: String)
+data class Worker(
+    val name: String,
+    val role: String,
+    val signatureB64: String = "",
+    val signedAt: String = ""
+)
 
 data class PtHistoryItem(val emittedAt: String, val place: String, val fileName: String, val status: String = "LIBERADA")
 
