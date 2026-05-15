@@ -19,7 +19,9 @@ class PtRepository(context: Context) {
                 company = o.optString("company"), area = o.optString("area"), place = o.optString("place"), responsible = o.optString("responsible"),
                 startMillis = o.optLong("startMillis", System.currentTimeMillis()), validityHours = o.optInt("validityHours", 8),
                 endMillis = o.optLong("endMillis", System.currentTimeMillis() + 8L * 60L * 60L * 1000L), teamName = o.optString("teamName"),
-                description = o.optString("description"), tools = o.optString("tools"), products = o.optString("products"), manualActivity = o.optString("manualActivity"),
+                description = o.optString("description"), tools = o.optString("tools"), products = o.optString("products"),
+                emergencyPoint = o.optString("emergencyPoint"), emergencyPhone = o.optString("emergencyPhone"), emergencyProcedure = o.optString("emergencyProcedure"), observations = o.optString("observations"),
+                manualActivity = o.optString("manualActivity"),
                 activities = o.optJSONArray("activities").toStringSet(), checklist = o.optJSONObject("checklist").toStringMap(), controls = o.optJSONObject("controls").toStringMap(),
                 workers = o.optJSONArray("workers").toWorkers(), photoUris = o.optJSONArray("photoUris").toStringList(),
                 signatureB64 = prefs.getString("signature_b64", o.optString("signatureB64")).orEmpty(), history = o.optJSONArray("history").toHistory()
@@ -50,18 +52,12 @@ class PtRepository(context: Context) {
     private fun toJson(data: PtData): JSONObject = JSONObject().apply {
         put("company", data.company); put("area", data.area); put("place", data.place); put("responsible", data.responsible)
         put("startMillis", data.startMillis); put("validityHours", data.validityHours); put("endMillis", data.endMillis)
-        put("teamName", data.teamName); put("description", data.description); put("tools", data.tools); put("products", data.products); put("manualActivity", data.manualActivity)
-        put("activities", JSONArray(data.activities.toList())); put("checklist", JSONObject(data.checklist as Map<*, *>)); put("controls", JSONObject(data.controls as Map<*, *>))
+        put("teamName", data.teamName); put("description", data.description); put("tools", data.tools); put("products", data.products)
+        put("emergencyPoint", data.emergencyPoint); put("emergencyPhone", data.emergencyPhone); put("emergencyProcedure", data.emergencyProcedure); put("observations", data.observations)
+        put("manualActivity", data.manualActivity)
+        put("activities", JSONArray(data.activities.toList())); put("checklist", JSONObject(data.checklist.toMap())); put("controls", JSONObject(data.controls.toMap()))
         put("photoUris", JSONArray(data.photoUris)); put("signatureB64", data.signatureB64)
-        put("workers", JSONArray().also { arr ->
-            data.workers.forEach {
-                arr.put(JSONObject()
-                    .put("name", it.name)
-                    .put("role", it.role)
-                    .put("signatureB64", it.signatureB64)
-                    .put("signedAt", it.signedAt))
-            }
-        })
+        put("workers", JSONArray().also { arr -> data.workers.forEach { arr.put(JSONObject().put("name", it.name).put("role", it.role).put("signatureB64", it.signatureB64).put("signedAt", it.signedAt)) } })
         put("history", JSONArray().also { arr -> data.history.forEach { arr.put(JSONObject().put("emittedAt", it.emittedAt).put("place", it.place).put("fileName", it.fileName).put("status", it.status)) } })
     }
 
@@ -72,12 +68,7 @@ class PtRepository(context: Context) {
         val list = mutableListOf<Worker>()
         if (this != null) for (i in 0 until length()) {
             val o = optJSONObject(i) ?: continue
-            list.add(Worker(
-                name = o.optString("name"),
-                role = o.optString("role"),
-                signatureB64 = o.optString("signatureB64"),
-                signedAt = o.optString("signedAt")
-            ))
+            list.add(Worker(o.optString("name"), o.optString("role"), o.optString("signatureB64"), o.optString("signedAt")))
         }
         return list
     }
