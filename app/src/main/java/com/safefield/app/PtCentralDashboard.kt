@@ -124,11 +124,11 @@ internal class PtCentralDashboard(
         card.addView(Ui.section(activity, "Fluxo da liberação"))
         card.addView(Ui.label(activity, "Siga a etapa indicada até a PT ficar liberada para emissão.").margin(0, 6.dp()))
         card.addView(Ui.progress(activity, doneCount(flow), 5).margin(0, 8.dp()))
-        card.addView(stepCard("01", "Dados", stepStatus(PtTarget.DADOS, flow), stepHint(PtTarget.DADOS, flow), ::openData).margin(0, 5.dp()))
-        card.addView(stepCard("02", "Riscos", stepStatus(PtTarget.RISCOS, flow), stepHint(PtTarget.RISCOS, flow), ::openRisks).margin(0, 5.dp()))
-        card.addView(stepCard("03", "Checklist", stepStatus(PtTarget.CHECKLIST, flow), stepHint(PtTarget.CHECKLIST, flow), ::openChecklist).margin(0, 5.dp()))
-        card.addView(stepCard("04", "Equipe", stepStatus(PtTarget.EQUIPE, flow), stepHint(PtTarget.EQUIPE, flow), ::openTeam).margin(0, 5.dp()))
-        card.addView(stepCard("05", "Revisão", stepStatus(PtTarget.REVISAO, flow), stepHint(PtTarget.REVISAO, flow), ::openReview).margin(0, 5.dp()))
+        card.addView(stepCard("01", "Dados", stepStatus(PtTarget.DADOS, flow), stepHint(PtTarget.DADOS, flow), openData).margin(0, 5.dp()))
+        card.addView(stepCard("02", "Riscos", stepStatus(PtTarget.RISCOS, flow), stepHint(PtTarget.RISCOS, flow), openRisks).margin(0, 5.dp()))
+        card.addView(stepCard("03", "Checklist", stepStatus(PtTarget.CHECKLIST, flow), stepHint(PtTarget.CHECKLIST, flow), openChecklist).margin(0, 5.dp()))
+        card.addView(stepCard("04", "Equipe", stepStatus(PtTarget.EQUIPE, flow), stepHint(PtTarget.EQUIPE, flow), openTeam).margin(0, 5.dp()))
+        card.addView(stepCard("05", "Revisão", stepStatus(PtTarget.REVISAO, flow), stepHint(PtTarget.REVISAO, flow), openReview).margin(0, 5.dp()))
         return card
     }
 
