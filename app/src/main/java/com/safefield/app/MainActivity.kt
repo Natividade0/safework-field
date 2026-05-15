@@ -353,17 +353,20 @@ class MainActivity : Activity() {
     }
 
     private fun showTeamEvidence(): Unit {
-        screen("Equipe e evidências", ::showPtCentral) {
-            addView(Ui.section(this@MainActivity, "Equipe executante").margin(0, 8.dp()))
-            val workerName = Ui.input(this@MainActivity, "Nome do trabalhador")
-            val workerRole = Ui.input(this@MainActivity, "Função")
+        screen("Envolvidos e assinaturas", ::showPtCentral) {
+            addView(Ui.section(this@MainActivity, "Responsável pela liberação").margin(0, 8.dp()))
+            addView(signatureCard().margin(0, 8.dp()))
+
+            addView(Ui.section(this@MainActivity, "Envolvidos na atividade").margin(0, 12.dp()))
+            val workerName = Ui.input(this@MainActivity, "Nome do envolvido")
+            val workerRole = Ui.input(this@MainActivity, "Função / empresa")
             addView(workerName.margin(0, 4.dp()))
             addView(workerRole.margin(0, 4.dp()))
 
-            val addWorker = Ui.button(this@MainActivity, "Adicionar trabalhador")
+            val addWorker = Ui.button(this@MainActivity, "Adicionar envolvido")
             addWorker.setOnClickListener {
                 if (workerName.text.isBlank()) {
-                    Toast.makeText(this@MainActivity, "Informe o nome do trabalhador", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "Informe o nome do envolvido", Toast.LENGTH_SHORT).show()
                 } else {
                     data.workers.add(Worker(workerName.text.toString(), workerRole.text.toString()))
                     repo.save(data)
@@ -372,26 +375,58 @@ class MainActivity : Activity() {
             }
             addView(addWorker.margin(0, 8.dp()))
 
-            data.workers.forEachIndexed { index, worker -> addView(workerCard(index, worker).margin(0, 5.dp())) }
+            if (data.workers.isEmpty()) {
+                val empty = Ui.card(this@MainActivity)
+                empty.addView(Ui.value(this@MainActivity, "Nenhum envolvido adicionado.", Ui.RED))
+                empty.addView(Ui.label(this@MainActivity, "Adicione os trabalhadores e colete a assinatura de cada um."))
+                addView(empty.margin(0, 6.dp()))
+            }
+            data.workers.forEachIndexed { index, worker -> addView(workerCard(index, worker).margin(0, 6.dp())) }
             addView(evidenceCard().margin(0, 8.dp()))
-            addView(signatureCard().margin(0, 8.dp()))
         }
     }
 
     private fun workerCard(index: Int, worker: Worker): LinearLayout {
         val card = Ui.card(this)
-        val row = Ui.row(this)
-        val info = Ui.value(this, "${worker.name} - ${worker.role}")
-        info.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        row.addView(info)
+        val top = Ui.row(this)
+        val infoBox = Ui.vbox(this)
+        infoBox.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        infoBox.addView(Ui.value(this, worker.name, Ui.TEXT))
+        infoBox.addView(Ui.label(this, worker.role.ifBlank { "Função não informada" }))
+        top.addView(infoBox)
+        top.addView(Ui.chip(this, if (worker.signatureB64.isBlank()) "SEM ASSINATURA" else "ASSINADO", if (worker.signatureB64.isBlank()) Ui.RED else Ui.GREEN))
+        card.addView(top)
+
+        if (worker.signedAt.isNotBlank()) card.addView(Ui.label(this, "Assinado em: ${worker.signedAt}").margin(0, 6.dp()))
+        repo.base64ToBitmap(worker.signatureB64)?.let {
+            val preview = ImageView(this)
+            preview.setImageBitmap(it)
+            preview.setBackgroundColor(android.graphics.Color.WHITE)
+            preview.adjustViewBounds = true
+            preview.maxHeight = 120.dp()
+            card.addView(preview.margin(0, 8.dp()))
+        }
+
+        val actions = Ui.row(this)
+        val sign = Ui.button(this, if (worker.signatureB64.isBlank()) "Assinar envolvido" else "Reassinar", if (worker.signatureB64.isBlank()) Ui.AMBER else Ui.GREEN)
+        sign.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        sign.setOnClickListener {
+            openSignatureDialog("Assinatura de ${worker.name}") { signature ->
+                data.workers[index] = worker.copy(signatureB64 = signature, signedAt = timestamp())
+                repo.save(data)
+                showTeamEvidence()
+            }
+        }
+        actions.addView(sign)
         val remove = Ui.ghostButton(this, "Remover")
+        remove.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         remove.setOnClickListener {
             data.workers.removeAt(index)
             repo.save(data)
             showTeamEvidence()
         }
-        row.addView(remove)
-        card.addView(row)
+        actions.addView(remove)
+        card.addView(actions.margin(0, 8.dp()))
         return card
     }
 
@@ -415,7 +450,7 @@ class MainActivity : Activity() {
 
     private fun signatureCard(): LinearLayout {
         val card = Ui.heroCard(this)
-        card.addView(Ui.chip(this, "ASSINATURA", if (data.signatureB64.isNotBlank()) Ui.GREEN else Ui.RED))
+        card.addView(Ui.chip(this, "RESPONSÁVEL", if (data.signatureB64.isNotBlank()) Ui.GREEN else Ui.RED))
         card.addView(Ui.title(this, "Assinatura do responsável", 18f).margin(0, 8.dp()))
         val saved = data.signatureB64.isNotBlank()
         card.addView(Ui.value(this, "Status: ${if (saved) "salva" else "pendente"}", if (saved) Ui.GREEN else Ui.RED))
@@ -428,19 +463,25 @@ class MainActivity : Activity() {
             card.addView(preview.margin(0, 8.dp()))
         }
         val button = Ui.button(this, if (saved) "Reassinar responsável" else "Assinar responsável")
-        button.setOnClickListener { openSignatureDialog() }
+        button.setOnClickListener {
+            openSignatureDialog("Assinatura do responsável") { signature ->
+                data.signatureB64 = signature
+                repo.save(data)
+                showTeamEvidence()
+            }
+        }
         card.addView(button.margin(0, 8.dp()))
         return card
     }
 
-    private fun openSignatureDialog(): Unit {
+    private fun openSignatureDialog(title: String, onSaved: (String) -> Unit): Unit {
         val pad = SignaturePadView(this)
         pad.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 260.dp())
         val box = Ui.vbox(this, 12.dp())
         box.addView(pad)
 
         val dialog = AlertDialog.Builder(this)
-            .setTitle("Assinatura do responsável")
+            .setTitle(title)
             .setView(box)
             .setNegativeButton("Cancelar", null)
             .setNeutralButton("Limpar", null)
@@ -453,10 +494,8 @@ class MainActivity : Activity() {
                 if (pad.isEmpty()) {
                     Toast.makeText(this, "Assine antes de salvar", Toast.LENGTH_SHORT).show()
                 } else {
-                    data.signatureB64 = repo.bitmapToBase64(pad.exportBitmap())
-                    repo.save(data)
+                    onSaved(repo.bitmapToBase64(pad.exportBitmap()))
                     dialog.dismiss()
-                    showTeamEvidence()
                 }
             }
         }
@@ -498,11 +537,13 @@ class MainActivity : Activity() {
         card.addView(Ui.value(this, "Atividades: ${activitySummary()}"))
         card.addView(Ui.value(this, "Quantidade de riscos: ${RiskEngine.risksFor(data).size}"))
         val answeredChecklist = RiskEngine.checklistItems.count { data.checklist[it]?.isNotBlank() == true }
+        val signedWorkers = data.workers.count { it.signatureB64.isNotBlank() }
         card.addView(Ui.value(this, "Checklist: $answeredChecklist/${RiskEngine.checklistItems.size}"))
-        card.addView(Ui.value(this, "Trabalhadores: ${data.workers.size}"))
+        card.addView(Ui.value(this, "Envolvidos: ${data.workers.size}"))
+        card.addView(Ui.value(this, "Assinaturas dos envolvidos: $signedWorkers/${data.workers.size}", if (signedWorkers == data.workers.size && data.workers.isNotEmpty()) Ui.GREEN else Ui.RED))
         card.addView(Ui.value(this, "Fotos: ${data.photoUris.size}"))
         val signatureSaved = data.signatureB64.isNotBlank()
-        card.addView(Ui.value(this, "Assinatura: ${if (signatureSaved) "salva" else "pendente"}", if (signatureSaved) Ui.GREEN else Ui.RED))
+        card.addView(Ui.value(this, "Assinatura do responsável: ${if (signatureSaved) "salva" else "pendente"}", if (signatureSaved) Ui.GREEN else Ui.RED))
         return card
     }
 
@@ -545,6 +586,7 @@ class MainActivity : Activity() {
         startActivity(Intent.createChooser(share, "Compartilhar PT SafeField"))
     }
 
+    private fun timestamp(): String = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR")).format(Date())
     private fun Int.dp(): Int = Ui.dp(this@MainActivity, this)
 }
 
