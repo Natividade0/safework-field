@@ -36,11 +36,13 @@ object PtFlowEngine {
             data.responsible.isBlank() && data.description.isBlank() &&
             data.activities.isEmpty() && data.manualActivity.isBlank()
         val isExpired = data.endMillis > 0L && now > data.endMillis
+        val unsignedWorkers = data.workers.count { it.signatureB64.isBlank() }
 
         if (isExpired) critical.add(PendingItem("PT expirada — ajuste a validade", PendingPriority.CRITICA, PtTarget.VALIDADE))
         if (data.responsible.isBlank()) critical.add(PendingItem("Sem responsável/emissor definido", PendingPriority.CRITICA, PtTarget.DADOS))
         if (data.workers.isEmpty()) critical.add(PendingItem("Sem trabalhador informado", PendingPriority.CRITICA, PtTarget.EQUIPE))
         if (data.signatureB64.isBlank()) critical.add(PendingItem("Assinatura do responsável pendente", PendingPriority.CRITICA, PtTarget.EQUIPE))
+        if (unsignedWorkers > 0) critical.add(PendingItem("$unsignedWorkers envolvido(s) sem assinatura", PendingPriority.CRITICA, PtTarget.EQUIPE))
         if (RiskEngine.checklistItems.any { data.checklist[it] == RiskEngine.NO }) critical.add(PendingItem("Checklist possui item marcado como Não", PendingPriority.CRITICA, PtTarget.CHECKLIST))
 
         val hasControlPending = RiskEngine.risksFor(data).any { risk ->
@@ -88,7 +90,7 @@ object PtFlowEngine {
         PtTarget.DADOS -> "Completar dados da PT"
         PtTarget.RISCOS -> "Validar riscos e controles"
         PtTarget.CHECKLIST -> "Responder checklist"
-        PtTarget.EQUIPE -> "Completar equipe e assinatura"
+        PtTarget.EQUIPE -> "Completar equipe e assinaturas"
         PtTarget.VALIDADE -> "Renovar validade"
         PtTarget.REVISAO -> "Emitir PDF"
     }
