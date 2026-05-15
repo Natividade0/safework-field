@@ -1,10 +1,13 @@
 package com.safefield.app
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -44,6 +47,12 @@ object Ui {
         }
     }
 
+    fun ripple(color: Int, radius: Int, strokeColor: Int = Color.TRANSPARENT, strokeWidth: Int = 0): RippleDrawable {
+        val normal = bg(color, radius, strokeColor, strokeWidth)
+        val mask = bg(Color.WHITE, radius)
+        return RippleDrawable(ColorStateList.valueOf(0x33FCD34D), normal, mask)
+    }
+
     fun gradient(radius: Int, start: Int = 0xFF1B202B.toInt(), end: Int = 0xFF0F1117.toInt(), stroke: Int = BORDER): GradientDrawable {
         return GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(start, end)).apply {
             cornerRadius = radius.toFloat()
@@ -72,6 +81,7 @@ object Ui {
             textSize = size
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = true
+            setLineSpacing(0f, 1.05f)
         }
     }
 
@@ -81,6 +91,7 @@ object Ui {
             setTextColor(MUTED)
             textSize = 13f
             includeFontPadding = true
+            setLineSpacing(0f, 1.08f)
         }
     }
 
@@ -90,6 +101,7 @@ object Ui {
             setTextColor(color)
             textSize = 15f
             includeFontPadding = true
+            setLineSpacing(0f, 1.08f)
         }
     }
 
@@ -123,9 +135,13 @@ object Ui {
             textSize = 15f
             background = bg(PANEL, dp(context, 14), BORDER, 1)
             setPadding(dp(context, 14), dp(context, 11), dp(context, 14), dp(context, 11))
+            minHeight = dp(context, 54)
             if (multi) {
                 minLines = 3
                 gravity = Gravity.TOP
+            }
+            setOnFocusChangeListener { view, focused ->
+                view.background = if (focused) bg(PANEL, dp(context, 14), AMBER, 2) else bg(PANEL, dp(context, 14), BORDER, 1)
             }
         }
     }
@@ -136,18 +152,20 @@ object Ui {
             setTextColor(if (color == AMBER) Color.BLACK else Color.WHITE)
             textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
-            background = bg(color, dp(context, 16))
-            minHeight = dp(context, 52)
+            background = ripple(color, dp(context, 16))
+            minHeight = dp(context, 54)
             isAllCaps = false
-            elevation = dp(context, 2).toFloat()
+            elevation = dp(context, 3).toFloat()
             stateListAnimator = null
+            setPadding(dp(context, 14), dp(context, 8), dp(context, 14), dp(context, 8))
+            pressFeedback(this)
         }
     }
 
     fun ghostButton(context: Context, text: String): Button {
         return button(context, text, PANEL).apply {
             setTextColor(TEXT)
-            background = bg(PANEL, dp(context, 16), BORDER_SOFT, 1)
+            background = ripple(0x0012161E, dp(context, 16), BORDER_SOFT, 1)
             elevation = 0f
         }
     }
@@ -158,17 +176,19 @@ object Ui {
 
     fun card(context: Context): LinearLayout {
         return vbox(context, dp(context, 16)).apply {
-            background = bg(CARD, dp(context, 22), BORDER, 1)
-            elevation = dp(context, 3).toFloat()
+            background = ripple(CARD, dp(context, 22), BORDER, 1)
+            elevation = dp(context, 4).toFloat()
             translationZ = dp(context, 2).toFloat()
+            pressFeedback(this)
         }
     }
 
     fun heroCard(context: Context): LinearLayout {
         return vbox(context, dp(context, 18)).apply {
             background = gradient(dp(context, 26), 0xFF1F2632.toInt(), 0xFF0B0E14.toInt(), 0xFF3A2A12.toInt())
-            elevation = dp(context, 5).toFloat()
+            elevation = dp(context, 6).toFloat()
             translationZ = dp(context, 3).toFloat()
+            pressFeedback(this)
         }
     }
 
@@ -200,8 +220,19 @@ object Ui {
         view.alpha = 0f
         view.scaleX = 0.98f
         view.scaleY = 0.98f
-        view.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(220L).start()
+        view.translationY = 14f
+        view.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setDuration(240L).start()
         return view
+    }
+
+    fun pressFeedback(view: View): Unit {
+        view.setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> v.animate().scaleX(0.985f).scaleY(0.985f).setDuration(80L).start()
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> v.animate().scaleX(1f).scaleY(1f).setDuration(120L).start()
+            }
+            false
+        }
     }
 }
 
