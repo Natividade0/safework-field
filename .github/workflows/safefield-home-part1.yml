@@ -1,0 +1,288 @@
+name: SafeField Home Part 1
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/safefield-home-part1.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update-home:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Reorganize Home and navigation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('app/src/main/java/com/safefield/app/MainActivity.kt')
+          text = path.read_text(encoding='utf-8')
+          if 'import android.widget.GridLayout\n' not in text:
+              text = text.replace('import android.widget.EditText\n', 'import android.widget.EditText\nimport android.widget.GridLayout\n')
+          if 'private data class HomeIndicator' not in text:
+              text = text.replace('    private val photoRequest: Int = 7001\n', '    private val photoRequest: Int = 7001\n    private data class HomeIndicator(val label: String, val value: String, val color: Int)\n')
+          start = text.index('    private fun showHome(): Unit {')
+          end = text.index('    private fun showPtCentral(): Unit {', start)
+          home = r'''    private fun showHome(): Unit {
+        screen("SafeField") {
+            val flow = PtFlowEngine.flow(data)
+            addView(homeDashboardHeader().margin(0, 10.dp()))
+            addView(mainPtDashboardCard(flow).margin(0, 8.dp()))
+            addView(quickDashboardIndicators(flow).margin(0, 6.dp()))
+            addView(homeShortcutPanel(flow).margin(0, 8.dp()))
+            addView(homeSectionTitle("Módulos").margin(0, 10.dp()))
+            addView(homeModuleGrid(compact = true).margin(0, 2.dp()))
+        }
+    }
+
+    private fun homeDashboardHeader(): LinearLayout {
+        val hero = Ui.heroCard(this)
+        val accent = View(this)
+        accent.background = Ui.bg(Ui.AMBER, 999.dp())
+        hero.addView(accent, LinearLayout.LayoutParams(72.dp(), 4.dp()).apply {
+            setMargins(0, 0, 0, 14.dp())
+        })
+        val brand = Ui.title(this, "SAFEFIELD", 30f)
+        brand.setTextColor(Ui.AMBER_SOFT)
+        hero.addView(brand)
+        hero.addView(Ui.value(this, "Segurança do Trabalho em Campo", Ui.TEXT))
+        hero.addView(Ui.label(this, "Dashboard operacional para emissão, controle e acompanhamento de PTs em campo."))
+        return hero
+    }
+
+    private fun mainPtDashboardCard(flow: PtFlowState): LinearLayout {
+        val statusColor = homeStatusColor(flow.status)
+        val card = Ui.heroCard(this)
+        val top = Ui.row(this)
+        val titleBox = Ui.vbox(this)
+        titleBox.addView(Ui.label(this, "Permissão de Trabalho"))
+        titleBox.addView(Ui.title(this, flow.number, 23f))
+        titleBox.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        top.addView(titleBox)
+        top.addView(homeStatusChip(flow.status.name, statusColor))
+        card.addView(top)
+        card.addView(Ui.value(this, "Validade: ${flow.validityLabel}").margin(0, 8.dp()))
+        flow.validityAlert?.let { alert -> card.addView(Ui.value(this, alert, Ui.AMBER_SOFT).margin(0, 3.dp())) }
+        card.addView(homeMetricStrip(listOf(
+            HomeIndicator("Críticas", flow.critical.size.toString(), Ui.RED),
+            HomeIndicator("Importantes", flow.important.size.toString(), Ui.AMBER),
+            HomeIndicator("Fotos", data.photoUris.size.toString(), Ui.AMBER_SOFT)
+        )).margin(0, 10.dp()))
+        val action = Ui.button(this, "Continuar PT")
+        action.setOnClickListener { saveAnd(::showPtCentral) }
+        card.addView(action.margin(0, 8.dp()))
+        return card
+    }
+
+    private fun quickDashboardIndicators(flow: PtFlowState): GridLayout {
+        val grid = GridLayout(this)
+        grid.columnCount = 2
+        listOf(
+            HomeIndicator("Pendências críticas", flow.critical.size.toString(), Ui.RED),
+            HomeIndicator("Pendências importantes", flow.important.size.toString(), Ui.AMBER),
+            HomeIndicator("Fotos anexadas", data.photoUris.size.toString(), Ui.AMBER_SOFT),
+            HomeIndicator("Trabalhadores", data.workers.size.toString(), Ui.GREEN)
+        ).forEach { item ->
+            val tile = homeIndicatorTile(item)
+            tile.layoutParams = homeGridParams()
+            grid.addView(tile)
+        }
+        return grid
+    }
+
+    private fun homeIndicatorTile(item: HomeIndicator): LinearLayout {
+        val tile = Ui.card(this)
+        val value = Ui.title(this, item.value, 22f)
+        value.setTextColor(item.color)
+        tile.addView(value)
+        tile.addView(Ui.label(this, item.label))
+        return tile
+    }
+
+    private fun homeMetricStrip(items: List<HomeIndicator>): LinearLayout {
+        val row = Ui.row(this)
+        items.forEach { item ->
+            val tile = Ui.vbox(this, 8.dp())
+            tile.background = Ui.bg(Ui.SHELL, 14.dp(), Ui.BORDER, 1)
+            val value = Ui.title(this, item.value, 18f)
+            value.setTextColor(item.color)
+            tile.addView(value)
+            tile.addView(Ui.label(this, item.label))
+            tile.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(4.dp(), 0, 4.dp(), 0)
+            }
+            row.addView(tile)
+        }
+        return row
+    }
+
+    private fun homeShortcutPanel(flow: PtFlowState): LinearLayout {
+        val card = Ui.card(this)
+        card.addView(homeSectionTitle("Atalhos"))
+        val grid = GridLayout(this)
+        grid.columnCount = 2
+        val shortcuts = listOf(
+            "Continuar PT" to View.OnClickListener { saveAnd(::showPtCentral) },
+            "Ver pendências" to View.OnClickListener { showPendingOverview(flow) },
+            "Histórico" to View.OnClickListener { showHistoryOverview() },
+            "Módulos" to View.OnClickListener { showModules() }
+        )
+        shortcuts.forEach { shortcut ->
+            val button = Ui.ghostButton(this, shortcut.first)
+            button.setOnClickListener(shortcut.second)
+            button.layoutParams = homeGridParams()
+            grid.addView(button)
+        }
+        card.addView(grid.margin(0, 8.dp()))
+        return card
+    }
+
+    private fun homeModuleGrid(compact: Boolean): GridLayout {
+        val grid = GridLayout(this)
+        grid.columnCount = 2
+        listOf("Permissão de Trabalho", "APR", "DDS", "EPI", "Inspeção", "Ocorrência", "Colaboradores", "Dashboard").forEach { name ->
+            val tile = homeModuleTile(name, compact)
+            tile.layoutParams = homeGridParams()
+            grid.addView(tile)
+        }
+        return grid
+    }
+
+    private fun homeModuleTile(name: String, compact: Boolean): LinearLayout {
+        val isPt = name == "Permissão de Trabalho"
+        val card = if (isPt) Ui.heroCard(this) else Ui.card(this)
+        val row = Ui.row(this)
+        row.addView(homeBubble(homeModuleInitial(name), if (isPt) Ui.AMBER else Ui.BORDER))
+        val texts = Ui.vbox(this)
+        texts.setPadding(12.dp(), 0, 0, 0)
+        texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        texts.addView(Ui.title(this, name, if (compact) 15f else 18f))
+        texts.addView(Ui.label(this, if (isPt) "Fluxo completo" else "Em desenvolvimento"))
+        row.addView(texts)
+        card.addView(row)
+        if (isPt && !compact) {
+            val flow = PtFlowEngine.flow(data)
+            card.addView(homeStatusChip(flow.status.name, homeStatusColor(flow.status)).margin(0, 10.dp()))
+        }
+        card.setOnClickListener { if (isPt) saveAnd(::showPtCentral) else showModulePlaceholder(name) }
+        return card
+    }
+
+    private fun homeGridParams(): GridLayout.LayoutParams {
+        val params = GridLayout.LayoutParams()
+        params.width = 0
+        params.height = ViewGroup.LayoutParams.WRAP_CONTENT
+        params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+        params.setMargins(5.dp(), 5.dp(), 5.dp(), 5.dp())
+        return params
+    }
+
+    private fun homeBubble(text: String, color: Int): TextView {
+        val bubble = TextView(this)
+        bubble.text = text
+        bubble.textSize = 14f
+        bubble.gravity = Gravity.CENTER
+        bubble.setTextColor(Ui.TEXT)
+        bubble.background = Ui.bg(Ui.PANEL, 16.dp(), color, 1)
+        bubble.layoutParams = LinearLayout.LayoutParams(48.dp(), 48.dp())
+        return bubble
+    }
+
+    private fun homeSectionTitle(text: String): TextView {
+        val title = Ui.section(this, text)
+        title.setTextColor(Ui.AMBER_SOFT)
+        return title
+    }
+
+    private fun homeStatusChip(text: String, color: Int): TextView = Ui.chip(this, text, color)
+
+    private fun homeStatusColor(status: PtStatus): Int {
+        return when (status) {
+            PtStatus.LIBERADA -> Ui.GREEN
+            PtStatus.BLOQUEADA, PtStatus.EXPIRADA -> Ui.RED
+            PtStatus.RASCUNHO -> Ui.AMBER
+        }
+    }
+
+    private fun homeModuleInitial(name: String): String {
+        return when (name) {
+            "Permissão de Trabalho" -> "PT"
+            "Inspeção" -> "IN"
+            "Ocorrência" -> "OC"
+            "Colaboradores" -> "CL"
+            "Dashboard" -> "DB"
+            else -> name.take(3).uppercase()
+        }
+    }
+
+    private fun showPendingOverview(flow: PtFlowState): Unit {
+        screen("Pendências", ::showHome) {
+            val card = Ui.card(this@MainActivity)
+            card.addView(Ui.title(this@MainActivity, "Pendências da PT", 20f))
+            if (flow.allPending.isEmpty()) {
+                card.addView(Ui.value(this@MainActivity, "Nenhuma pendência ativa", Ui.GREEN).margin(0, 8.dp()))
+            } else {
+                flow.critical.forEach { item -> card.addView(Ui.value(this@MainActivity, "Crítica: ${item.message}", Ui.RED).margin(0, 7.dp())) }
+                flow.important.forEach { item -> card.addView(Ui.value(this@MainActivity, "Importante: ${item.message}", Ui.AMBER_SOFT).margin(0, 7.dp())) }
+            }
+            val action = Ui.button(this@MainActivity, "Continuar PT")
+            action.setOnClickListener { saveAnd(::showPtCentral) }
+            card.addView(action.margin(0, 10.dp()))
+            addView(card.margin(0, 8.dp()))
+        }
+    }
+
+    private fun showHistoryOverview(): Unit {
+        screen("Histórico", ::showHome) {
+            val card = Ui.card(this@MainActivity)
+            card.addView(Ui.title(this@MainActivity, "Últimas PTs emitidas", 20f))
+            if (data.history.isEmpty()) {
+                card.addView(Ui.label(this@MainActivity, "Nenhuma PT emitida neste aparelho."))
+            } else {
+                data.history.take(6).forEach { item ->
+                    card.addView(Ui.value(this@MainActivity, "${item.emittedAt} - ${item.place.ifBlank { "Sem local" }}").margin(0, 7.dp()))
+                    card.addView(Ui.label(this@MainActivity, item.fileName))
+                }
+            }
+            addView(card.margin(0, 8.dp()))
+        }
+    }
+
+    private fun showModules(): Unit {
+        screen("Módulos", ::showHome) {
+            addView(homeModuleGrid(compact = false).margin(0, 6.dp()))
+        }
+    }
+
+    private fun showModulePlaceholder(name: String): Unit {
+        screen(name, ::showHome) {
+            val card = Ui.heroCard(this@MainActivity)
+            card.addView(Ui.chip(this@MainActivity, "Em desenvolvimento", Ui.AMBER))
+            card.addView(Ui.title(this@MainActivity, name, 24f).margin(0, 10.dp()))
+            card.addView(Ui.label(this@MainActivity, "Módulo preparado para expansão do SafeField."))
+            val back = Ui.button(this@MainActivity, "Voltar")
+            back.setOnClickListener { saveAnd(::showHome) }
+            card.addView(back.margin(0, 12.dp()))
+            addView(card.margin(0, 10.dp()))
+        }
+    }
+
+'''
+          text = text[:start] + home + text[end:]
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit Home update and remove workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/safefield/app/MainActivity.kt
+          git rm .github/workflows/safefield-home-part1.yml
+          git commit -m "Reorganize SafeField home navigation"
+          git push
