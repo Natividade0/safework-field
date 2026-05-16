@@ -10,6 +10,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -54,12 +55,13 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
         newPage()
         drawIdentification(data)
         drawDescription(data)
+        drawEmergency(data)
         drawChecklist(data)
         drawRisks(data)
         drawWorkers(data)
-        drawEvidence(data)
         drawResponsibleSignature(data)
         drawWorkerSignatures(data)
+        drawEvidence(data)
         finishPage()
         val file = File(context.cacheDir, "SafeField_PT_${System.currentTimeMillis()}.pdf")
         FileOutputStream(file).use { doc.writeTo(it) }
@@ -83,12 +85,22 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
         fillPaint.color = amber
         canvas.drawRect(0f, 82f, pageWidth.toFloat(), 90f, fillPaint)
         canvas.drawText("SAFEFIELD", left, 28f, titlePaint)
-        canvas.drawText("Segurança do Trabalho em Campo", left, 45f, subtitlePaint)
-        canvas.drawText("PERMISSÃO DE TRABALHO", 330f, 28f, titlePaint)
-        canvas.drawText("Emissão: $generatedAt", 330f, 46f, subtitlePaint)
-        canvas.drawText("PT-${System.currentTimeMillis().toString().takeLast(6)}", 330f, 62f, subtitlePaint)
-        val status = if (RiskEngine.isReleased(currentData)) "LIBERADA" else "BLOQUEADA"
-        fillPaint.color = if (status == "LIBERADA") Color.rgb(34, 197, 94) else Color.rgb(239, 68, 68)
+        canvas.drawText("Seguranca do Trabalho em Campo", left, 45f, subtitlePaint)
+        val flow = PtFlowEngine.flow(currentData)
+        canvas.drawText("PERMISSAO DE TRABALHO", 318f, 28f, titlePaint)
+        canvas.drawText("Gerado em: $generatedAt", 330f, 46f, subtitlePaint)
+        canvas.drawText(flow.number, 330f, 62f, subtitlePaint)
+        val status = when (flow.status) {
+            PtStatus.LIBERADA -> "LIBERADA"
+            PtStatus.EXPIRADA -> "EXPIRADA"
+            PtStatus.RASCUNHO -> "RASCUNHO"
+            PtStatus.BLOQUEADA -> "BLOQUEADA"
+        }
+        fillPaint.color = when (flow.status) {
+            PtStatus.LIBERADA -> Color.rgb(34, 197, 94)
+            PtStatus.RASCUNHO -> amber
+            else -> Color.rgb(239, 68, 68)
+        }
         canvas.drawRoundRect(RectF(470f, 52f, right, 72f), 8f, 8f, fillPaint)
         canvas.drawText(status, 481f, 66f, statusPaint)
     }
@@ -97,7 +109,7 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
         canvas.drawLine(left, 806f, right, 806f, strokePaint)
         canvas.drawText("SafeField", left, 821f, smallPaint)
         canvas.drawText("Gerado em $generatedAt", 235f, 821f, smallPaint)
-        canvas.drawText("Página $pageNumber", 510f, 821f, smallPaint)
+        canvas.drawText("Pagina $pageNumber", 510f, 821f, smallPaint)
         doc.finishPage(page)
     }
 
@@ -119,66 +131,54 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
     }
 
     private fun drawIdentification(data: PtData): Unit {
-        section("1. Identificação")
-        twoColumnTable(listOf("Empresa / Planta" to data.company, "Área / Setor" to data.area, "Local da atividade" to data.place, "Responsável / Emissor" to data.responsible, "Início" to Ui.fmt(data.startMillis), "Validade" to "${data.validityHours}h", "Término" to Ui.fmt(data.endMillis), "Equipe executante" to data.teamName))
+        section("1. Identificacao da PT")
+        twoColumnTable(listOf("Numero da PT" to PtFlowEngine.ptNumber(data), "Empresa / Planta" to data.company, "Area / Setor" to data.area, "Local da atividade" to data.place, "Responsavel / Emissor" to data.responsible, "Inicio" to Ui.fmt(data.startMillis), "Validade" to "${data.validityHours}h", "Termino" to Ui.fmt(data.endMillis), "Equipe executante" to data.teamName))
     }
 
     private fun drawDescription(data: PtData): Unit {
-        section("2. Descrição da atividade")
-        twoColumnTable(listOf("Descrição detalhada" to data.description, "Ferramentas / equipamentos" to data.tools, "Substâncias / produtos" to data.products))
+        section("2. Descricao da atividade")
+        twoColumnTable(listOf("Descricao detalhada" to data.description, "Ferramentas / equipamentos" to data.tools, "Substancias / produtos" to data.products, "Observacoes gerais" to data.observations))
+    }
+
+    private fun drawEmergency(data: PtData): Unit {
+        section("3. Emergencia")
+        twoColumnTable(listOf("Ponto de encontro / recurso" to data.emergencyPoint, "Telefone / canal" to data.emergencyPhone, "Procedimento" to data.emergencyProcedure))
     }
 
     private fun drawChecklist(data: PtData): Unit {
-        section("3. Checklist de liberação")
+        section("4. Lista Geral de Verificacao")
         tableHeader(floatArrayOf(430f, 93f), arrayOf("Item", "Resposta"))
-        RiskEngine.checklistItems.forEach { item -> tableRow(floatArrayOf(430f, 93f), arrayOf(item, data.checklist[item].orEmpty().ifBlank { "-" })) }
+        RiskEngine.checklistItems.forEach { item ->
+            val answer = data.checklist[item].orEmpty().ifBlank { "-" }
+            tableRow(floatArrayOf(430f, 93f), arrayOf(item, answer), colors = arrayOf(textColor, answerColor(answer)))
+        }
     }
 
     private fun drawRisks(data: PtData): Unit {
-        section("4. Riscos e controles")
+        section("5. Riscos e Medidas de Controle")
         tableHeader(floatArrayOf(142f, 293f, 88f), arrayOf("Risco", "Medida de controle", "Resposta"))
         val risks = RiskEngine.risksFor(data)
         if (risks.isEmpty()) { tableRow(floatArrayOf(142f, 293f, 88f), arrayOf("-", "Nenhum risco gerado", "-")); return }
         risks.forEach { risk ->
             RiskEngine.controls[risk].orEmpty().forEach { control ->
                 val answer = data.controls[RiskEngine.controlKey(risk, control)].orEmpty().ifBlank { "-" }
-                tableRow(floatArrayOf(142f, 293f, 88f), arrayOf(risk, control, answer))
+                tableRow(floatArrayOf(142f, 293f, 88f), arrayOf(risk, control, answer), colors = arrayOf(textColor, textColor, answerColor(answer)))
             }
         }
     }
 
     private fun drawWorkers(data: PtData): Unit {
-        section("5. Trabalhadores")
-        tableHeader(floatArrayOf(60f, 285f, 178f), arrayOf("Nº", "Nome", "Função"))
-        if (data.workers.isEmpty()) tableRow(floatArrayOf(60f, 285f, 178f), arrayOf("-", "Nenhum trabalhador informado", "-"))
-        else data.workers.forEachIndexed { index, worker -> tableRow(floatArrayOf(60f, 285f, 178f), arrayOf("${index + 1}", worker.name, worker.role.ifBlank { "-" })) }
-    }
-
-    private fun drawEvidence(data: PtData): Unit {
-        section("6. Evidências")
-        twoColumnTable(listOf("Fotos anexadas" to data.photoUris.size.toString()))
-        if (data.photoUris.isEmpty()) return
-        data.photoUris.forEachIndexed { index, uri -> drawEvidencePhoto(index + 1, uri) }
-    }
-
-    private fun drawEvidencePhoto(number: Int, uriString: String): Unit {
-        ensure(150f)
-        val boxTop = y
-        fillPaint.color = Color.WHITE
-        canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 138f), 6f, 6f, fillPaint)
-        canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 138f), 6f, 6f, strokePaint)
-        canvas.drawText("Foto $number", left + 10f, boxTop + 16f, labelPaint)
-        val bitmap = loadBitmapFromUri(uriString)
-        if (bitmap == null) {
-            canvas.drawText("Foto $number: não foi possível carregar a imagem", left + 10f, boxTop + 72f, bodyPaint)
-        } else {
-            drawBitmapInside(bitmap, RectF(left + 10f, boxTop + 24f, right - 10f, boxTop + 128f))
+        section("6. Envolvidos")
+        tableHeader(floatArrayOf(45f, 210f, 170f, 98f), arrayOf("No", "Nome", "Funcao / empresa", "Assinatura"))
+        if (data.workers.isEmpty()) tableRow(floatArrayOf(45f, 210f, 170f, 98f), arrayOf("-", "Nenhum trabalhador informado", "-", "-"))
+        else data.workers.forEachIndexed { index, worker ->
+            val signed = if (worker.signatureB64.isNotBlank()) "Assinada" else "Pendente"
+            tableRow(floatArrayOf(45f, 210f, 170f, 98f), arrayOf("${index + 1}", worker.name, worker.role.ifBlank { "-" }, signed), colors = arrayOf(textColor, textColor, textColor, if (signed == "Assinada") Color.rgb(22, 163, 74) else amber))
         }
-        y += 150f
     }
 
     private fun drawResponsibleSignature(data: PtData): Unit {
-        section("7. Assinatura do responsável")
+        section("7. Assinaturas")
         ensure(138f)
         val boxTop = y
         fillPaint.color = Color.WHITE
@@ -188,17 +188,13 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
             drawBitmapInside(bitmap, RectF(left + 18f, boxTop + 12f, left + 248f, boxTop + 90f))
         } ?: canvas.drawText("Assinatura pendente", left + 18f, boxTop + 46f, bodyPaint)
         canvas.drawLine(left + 280f, boxTop + 72f, right - 18f, boxTop + 72f, strokePaint)
-        canvas.drawText(data.responsible.ifBlank { "Responsável não informado" }, left + 280f, boxTop + 91f, bodyPaint)
-        canvas.drawText("Nome e identificação do responsável", left + 280f, boxTop + 104f, smallPaint)
+        canvas.drawText(data.responsible.ifBlank { "Responsavel nao informado" }, left + 280f, boxTop + 91f, bodyPaint)
+        canvas.drawText("Responsavel / emissor", left + 280f, boxTop + 104f, smallPaint)
         y += 128f
     }
 
     private fun drawWorkerSignatures(data: PtData): Unit {
-        section("8. Assinaturas dos envolvidos")
-        if (data.workers.isEmpty()) {
-            twoColumnTable(listOf("Envolvidos" to "Nenhum trabalhador informado"))
-            return
-        }
+        if (data.workers.isEmpty()) { twoColumnTable(listOf("Envolvidos" to "Nenhum trabalhador informado")); return }
         data.workers.forEachIndexed { index, worker -> drawWorkerSignature(index + 1, worker) }
     }
 
@@ -213,16 +209,59 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
             drawBitmapInside(bitmap, RectF(left + 10f, boxTop + 24f, left + 238f, boxTop + 86f))
         } ?: canvas.drawText("Assinatura pendente", left + 10f, boxTop + 55f, bodyPaint)
         canvas.drawLine(left + 270f, boxTop + 62f, right - 12f, boxTop + 62f, strokePaint)
-        canvas.drawText(worker.name.ifBlank { "Nome não informado" }, left + 270f, boxTop + 80f, bodyPaint)
-        canvas.drawText(worker.role.ifBlank { "Função não informada" }, left + 270f, boxTop + 94f, smallPaint)
+        canvas.drawText(worker.name.ifBlank { "Nome nao informado" }, left + 270f, boxTop + 80f, bodyPaint)
+        canvas.drawText(worker.role.ifBlank { "Funcao nao informada" }, left + 270f, boxTop + 94f, smallPaint)
         if (worker.signedAt.isNotBlank()) canvas.drawText("Assinado em ${worker.signedAt}", left + 10f, boxTop + 98f, smallPaint)
         y += 116f
     }
 
+    private fun drawEvidence(data: PtData): Unit {
+        section("8. Evidencias fotograficas")
+        twoColumnTable(listOf("Fotos anexadas" to data.photoUris.size.toString()))
+        if (data.photoUris.isEmpty()) return
+        data.photoUris.forEachIndexed { index, uri -> drawEvidencePhoto(index + 1, uri) }
+    }
+
+    private fun drawEvidencePhoto(number: Int, uriString: String): Unit {
+        ensure(150f)
+        val boxTop = y
+        fillPaint.color = Color.WHITE
+        canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 138f), 6f, 6f, fillPaint)
+        canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 138f), 6f, 6f, strokePaint)
+        canvas.drawText("Foto $number", left + 10f, boxTop + 16f, labelPaint)
+        val bitmap = loadBitmapFromUri(uriString)
+        if (bitmap == null) {
+            canvas.drawText("Foto $number: nao foi possivel carregar a imagem", left + 10f, boxTop + 72f, bodyPaint)
+        } else {
+            drawBitmapInside(bitmap, RectF(left + 10f, boxTop + 24f, right - 10f, boxTop + 128f))
+            bitmap.recycle()
+        }
+        y += 150f
+    }
+
     private fun loadBitmapFromUri(uriString: String): Bitmap? {
         return runCatching {
-            context.contentResolver.openInputStream(Uri.parse(uriString))?.use { input -> BitmapFactory.decodeStream(input) }
+            val bytes = context.contentResolver.openInputStream(Uri.parse(uriString))?.use { input ->
+                val out = ByteArrayOutputStream()
+                val buffer = ByteArray(16 * 1024)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read <= 0) break
+                    out.write(buffer, 0, read)
+                }
+                out.toByteArray()
+            } ?: return@runCatching null
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            val options = BitmapFactory.Options().apply { inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight) }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
         }.getOrNull()
+    }
+
+    private fun sampleSize(width: Int, height: Int): Int {
+        var sample = 1
+        while (width / sample > 1400 || height / sample > 1400) sample *= 2
+        return sample.coerceAtLeast(1)
     }
 
     private fun drawBitmapInside(bitmap: Bitmap, bounds: RectF): Unit {
@@ -252,7 +291,7 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
         y += 22f
     }
 
-    private fun tableRow(widths: FloatArray, values: Array<String>, labelFirst: Boolean = false): Unit {
+    private fun tableRow(widths: FloatArray, values: Array<String>, labelFirst: Boolean = false, colors: Array<Int>? = null): Unit {
         val lines = values.mapIndexed { index, value -> wrapLines(value, widths[index] - 12f, if (labelFirst && index == 0) labelPaint else bodyPaint) }
         val rowHeight = (lines.maxOf { it.size } * 11f + 12f).coerceAtLeast(25f)
         ensure(rowHeight)
@@ -262,11 +301,22 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
             canvas.drawRect(x, y, x + width, y + rowHeight, fillPaint)
             canvas.drawRect(x, y, x + width, y + rowHeight, strokePaint)
             val paint = if (labelFirst && index == 0) labelPaint else bodyPaint
+            val previousColor = paint.color
+            if (colors != null && index < colors.size) paint.color = colors[index]
             var textY = y + 15f
             lines[index].forEach { line -> canvas.drawText(line, x + 6f, textY, paint); textY += 11f }
+            paint.color = previousColor
             x += width
         }
         y += rowHeight
+    }
+
+    private fun answerColor(answer: String): Int {
+        return when (answer) {
+            RiskEngine.NO -> Color.rgb(220, 38, 38)
+            "-" -> amber
+            else -> textColor
+        }
     }
 
     private fun wrapLines(value: String, width: Float, paint: Paint): List<String> {
