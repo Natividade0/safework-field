@@ -24,35 +24,46 @@ class SignatureActivity : Activity() {
         val root = Ui.vbox(this, 14.dp())
         root.setBackgroundColor(Ui.SHELL)
 
-        val header = Ui.row(this)
-        val titleView = Ui.title(this, title, 20f)
-        titleView.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        header.addView(titleView)
-        header.addView(Ui.chip(this, "TELA CHEIA", Ui.AMBER))
-        root.addView(header.margin(0, 0))
+        val topBar = Ui.row(this)
+        topBar.layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
 
-        root.addView(Ui.label(this, "Assine com o dedo. Use salvar para retornar a PT.").margin(0, 6.dp()))
-
-        val pad = SignaturePadView(this)
-        pad.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
-        root.addView(pad.margin(0, 8.dp()))
-
-        val actions = Ui.row(this)
-        val clear = Ui.ghostButton(this, "Limpar")
-        clear.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        clear.setOnClickListener { pad.clearPad() }
-        actions.addView(clear)
-
-        val cancel = Ui.ghostButton(this, "Cancelar")
-        cancel.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        cancel.setOnClickListener {
+        val back = Ui.ghostButton(this, "Voltar")
+        back.layoutParams = LinearLayout.LayoutParams(96.dp(), ViewGroup.LayoutParams.WRAP_CONTENT)
+        back.setOnClickListener {
             setResult(RESULT_CANCELED)
             finish()
         }
-        actions.addView(cancel)
+        topBar.addView(back)
+
+        val titleView = Ui.title(this, title, 19f)
+        titleView.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(10.dp(), 0, 10.dp(), 0)
+        }
+        topBar.addView(titleView)
+
+        val clear = Ui.ghostButton(this, "Limpar")
+        clear.layoutParams = LinearLayout.LayoutParams(96.dp(), ViewGroup.LayoutParams.WRAP_CONTENT)
+        topBar.addView(clear)
 
         val save = Ui.button(this, "Salvar assinatura")
-        save.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        save.layoutParams = LinearLayout.LayoutParams(176.dp(), ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            setMargins(8.dp(), 0, 0, 0)
+        }
+        topBar.addView(save)
+        root.addView(topBar)
+
+        root.addView(Ui.label(this, "Assine no campo branco abaixo.").margin(0, 6.dp()))
+
+        val pad = SignaturePadView(this)
+        val padParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+        padParams.setMargins(0, 8.dp(), 0, 0)
+        pad.layoutParams = padParams
+        root.addView(pad)
+
+        clear.setOnClickListener { pad.clearPad() }
         save.setOnClickListener {
             if (pad.isEmpty()) {
                 Toast.makeText(this, "Assine antes de salvar", Toast.LENGTH_SHORT).show()
@@ -63,15 +74,13 @@ class SignatureActivity : Activity() {
                 finish()
             }
         }
-        actions.addView(save)
-        root.addView(actions.margin(0, 8.dp()))
 
         setContentView(root)
     }
 
     override fun onBackPressed(): Unit {
         setResult(RESULT_CANCELED)
-        super.onBackPressed()
+        finish()
     }
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
