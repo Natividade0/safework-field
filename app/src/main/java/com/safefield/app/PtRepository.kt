@@ -58,7 +58,24 @@ class PtRepository(context: Context) {
         put("activities", JSONArray(data.activities.toList())); put("checklist", JSONObject(data.checklist.toMap())); put("controls", JSONObject(data.controls.toMap()))
         put("photoUris", JSONArray(data.photoUris)); put("signatureB64", data.signatureB64)
         put("workers", JSONArray().also { arr -> data.workers.forEach { arr.put(JSONObject().put("name", it.name).put("role", it.role).put("signatureB64", it.signatureB64).put("signedAt", it.signedAt)) } })
-        put("history", JSONArray().also { arr -> data.history.forEach { arr.put(JSONObject().put("emittedAt", it.emittedAt).put("place", it.place).put("fileName", it.fileName).put("status", it.status)) } })
+        put("history", JSONArray().also { arr ->
+            data.history.forEach {
+                arr.put(
+                    JSONObject()
+                        .put("ptNumber", it.ptNumber)
+                        .put("emittedAt", it.emittedAt)
+                        .put("place", it.place)
+                        .put("company", it.company)
+                        .put("responsible", it.responsible)
+                        .put("fileName", it.fileName)
+                        .put("status", it.status)
+                        .put("startMillis", it.startMillis)
+                        .put("endMillis", it.endMillis)
+                        .put("closedAt", it.closedAt)
+                        .put("closeNote", it.closeNote)
+                )
+            }
+        })
     }
 
     private fun JSONArray?.toStringSet(): MutableSet<String> { val set = linkedSetOf<String>(); if (this != null) for (i in 0 until length()) set.add(optString(i)); return set }
@@ -72,5 +89,26 @@ class PtRepository(context: Context) {
         }
         return list
     }
-    private fun JSONArray?.toHistory(): MutableList<PtHistoryItem> { val list = mutableListOf<PtHistoryItem>(); if (this != null) for (i in 0 until length()) { val o = optJSONObject(i) ?: continue; list.add(PtHistoryItem(o.optString("emittedAt"), o.optString("place"), o.optString("fileName"), o.optString("status", "LIBERADA"))) }; return list }
+    private fun JSONArray?.toHistory(): MutableList<PtHistoryItem> {
+        val list = mutableListOf<PtHistoryItem>()
+        if (this != null) for (i in 0 until length()) {
+            val o = optJSONObject(i) ?: continue
+            list.add(
+                PtHistoryItem(
+                    ptNumber = o.optString("ptNumber"),
+                    emittedAt = o.optString("emittedAt"),
+                    place = o.optString("place"),
+                    company = o.optString("company"),
+                    responsible = o.optString("responsible"),
+                    fileName = o.optString("fileName"),
+                    status = o.optString("status", "LIBERADA"),
+                    startMillis = o.optLong("startMillis", 0L),
+                    endMillis = o.optLong("endMillis", 0L),
+                    closedAt = o.optString("closedAt"),
+                    closeNote = o.optString("closeNote")
+                )
+            )
+        }
+        return list
+    }
 }
