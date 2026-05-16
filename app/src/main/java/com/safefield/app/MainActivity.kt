@@ -3,8 +3,10 @@ package com.safefield.app
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.DatePickerDialog
+import android.app.Dialog
 import android.app.TimePickerDialog
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
@@ -530,8 +532,11 @@ class MainActivity : Activity() {
         pad.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 260.dp())
         val box = Ui.vbox(this, 12.dp())
         box.addView(pad)
+        val full = Ui.button(this, "Assinar em tela cheia")
+        box.addView(full.margin(0, 6.dp()))
 
-        val dialog = AlertDialog.Builder(this)
+        lateinit var dialog: AlertDialog
+        dialog = AlertDialog.Builder(this)
             .setTitle(title)
             .setView(box)
             .setNegativeButton("Cancelar", null)
@@ -539,6 +544,10 @@ class MainActivity : Activity() {
             .setPositiveButton("Salvar", null)
             .create()
 
+        full.setOnClickListener {
+            dialog.dismiss()
+            openFullscreenSignatureDialog(title, onSaved)
+        }
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { pad.clearPad() }
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -551,6 +560,57 @@ class MainActivity : Activity() {
             }
         }
         dialog.show()
+    }
+
+    private fun openFullscreenSignatureDialog(title: String, onSaved: (String) -> Unit): Unit {
+        val previousOrientation = requestedOrientation
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        val dialog = Dialog(this)
+        val root = LinearLayout(this)
+        root.orientation = LinearLayout.VERTICAL
+        root.setPadding(14.dp(), 14.dp(), 14.dp(), 14.dp())
+        root.setBackgroundColor(Ui.SHELL)
+
+        val header = Ui.row(this)
+        val titleView = Ui.title(this, title, 20f)
+        titleView.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        header.addView(titleView)
+        header.addView(Ui.chip(this, "TELA CHEIA", Ui.AMBER))
+        root.addView(header.margin(0, 0))
+
+        val hint = Ui.label(this, "Assine com o dedo. Ao salvar, a tela volta automaticamente ao modo normal.")
+        root.addView(hint.margin(0, 6.dp()))
+
+        val pad = SignaturePadView(this)
+        pad.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+        root.addView(pad.margin(0, 8.dp()))
+
+        val actions = Ui.row(this)
+        val clear = Ui.ghostButton(this, "Limpar")
+        clear.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        clear.setOnClickListener { pad.clearPad() }
+        actions.addView(clear)
+        val cancel = Ui.ghostButton(this, "Cancelar")
+        cancel.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        cancel.setOnClickListener { dialog.dismiss() }
+        actions.addView(cancel)
+        val save = Ui.button(this, "Salvar assinatura")
+        save.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        save.setOnClickListener {
+            if (pad.isEmpty()) {
+                Toast.makeText(this, "Assine antes de salvar", Toast.LENGTH_SHORT).show()
+            } else {
+                onSaved(repo.bitmapToBase64(pad.exportBitmap()))
+                dialog.dismiss()
+            }
+        }
+        actions.addView(save)
+        root.addView(actions.margin(0, 8.dp()))
+
+        dialog.setContentView(root)
+        dialog.setOnDismissListener { requestedOrientation = previousOrientation }
+        dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
     }
 
     private fun showReview(): Unit {
