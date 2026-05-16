@@ -7,7 +7,29 @@ data class Worker(
     val signedAt: String = ""
 )
 
-data class PtHistoryItem(val emittedAt: String, val place: String, val fileName: String, val status: String = "LIBERADA")
+data class PtHistoryItem(
+    val ptNumber: String = "",
+    val emittedAt: String = "",
+    val place: String = "",
+    val company: String = "",
+    val responsible: String = "",
+    val fileName: String = "",
+    val status: String = "LIBERADA",
+    val startMillis: Long = 0L,
+    val endMillis: Long = 0L,
+    val closedAt: String = "",
+    val closeNote: String = ""
+) {
+    constructor(emittedAt: String, place: String, fileName: String, status: String = "LIBERADA") : this(
+        ptNumber = "",
+        emittedAt = emittedAt,
+        place = place,
+        company = "",
+        responsible = "",
+        fileName = fileName,
+        status = status
+    )
+}
 
 data class PtData(
     var company: String = "",
