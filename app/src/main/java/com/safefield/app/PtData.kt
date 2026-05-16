@@ -21,7 +21,7 @@ data class PtHistoryItem(
     val closeNote: String = ""
 ) {
     constructor(emittedAt: String, place: String, fileName: String, status: String = "LIBERADA") : this(
-        ptNumber = "",
+        ptNumber = fileName.removePrefix("SafeField_").removeSuffix(".pdf").ifBlank { "PT emitida" },
         emittedAt = emittedAt,
         place = place,
         company = "",
