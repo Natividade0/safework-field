@@ -30,6 +30,7 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
     private val border: Int = Color.rgb(209, 213, 219)
     private val textColor: Int = Color.rgb(31, 41, 55)
     private val muted: Int = Color.rgb(107, 114, 128)
+    private val purple: Int = Color.rgb(147, 51, 234)
     private val generatedAt: String = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR")).format(Date())
     private lateinit var doc: PdfDocument
     private lateinit var canvas: Canvas
@@ -58,10 +59,12 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
         drawEmergency(data)
         drawChecklist(data)
         drawRisks(data)
+        drawApr(data)
         drawWorkers(data)
         drawResponsibleSignature(data)
         drawWorkerSignatures(data)
         drawEvidence(data)
+        drawClosure(data)
         finishPage()
         val file = File(context.cacheDir, "SafeField_PT_${System.currentTimeMillis()}.pdf")
         FileOutputStream(file).use { doc.writeTo(it) }
@@ -168,7 +171,7 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
     }
 
     private fun drawWorkers(data: PtData): Unit {
-        section("6. Envolvidos")
+        section("7. Envolvidos")
         tableHeader(floatArrayOf(45f, 210f, 170f, 98f), arrayOf("No", "Nome", "Funcao / empresa", "Assinatura"))
         if (data.workers.isEmpty()) tableRow(floatArrayOf(45f, 210f, 170f, 98f), arrayOf("-", "Nenhum trabalhador informado", "-", "-"))
         else data.workers.forEachIndexed { index, worker ->
@@ -178,7 +181,7 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
     }
 
     private fun drawResponsibleSignature(data: PtData): Unit {
-        section("7. Assinaturas")
+        section("8. Assinaturas")
         ensure(138f)
         val boxTop = y
         fillPaint.color = Color.WHITE
@@ -216,10 +219,64 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
     }
 
     private fun drawEvidence(data: PtData): Unit {
-        section("8. Evidencias fotograficas")
+        section("9. Evidencias fotograficas")
         twoColumnTable(listOf("Fotos anexadas" to data.photoUris.size.toString()))
         if (data.photoUris.isEmpty()) return
         data.photoUris.forEachIndexed { index, uri -> drawEvidencePhoto(index + 1, uri) }
+    }
+
+    private fun drawApr(data: PtData): Unit {
+        section("6. APR AUTOMATICA")
+        val apr = AprEngine.generate(data)
+        tableHeader(floatArrayOf(92f, 112f, 66f, 155f, 98f), arrayOf("Atividade", "Risco", "Nivel", "Controle", "EPI"))
+        if (apr.isEmpty()) {
+            tableRow(floatArrayOf(92f, 112f, 66f, 155f, 98f), arrayOf("-", "APR nao gerada", "-", "Informe atividade critica ou descricao detalhada", "-"))
+            return
+        }
+        apr.forEach { item ->
+            tableRow(
+                floatArrayOf(92f, 112f, 66f, 155f, 98f),
+                arrayOf(item.activity, item.risk, item.classification, item.control, item.epi),
+                colors = arrayOf(textColor, textColor, aprColor(item.classification), textColor, textColor)
+            )
+        }
+    }
+
+    private fun drawClosure(data: PtData): Unit {
+        section("10. ENCERRAMENTO DA PT")
+        val closed = data.closureAt.isNotBlank()
+        twoColumnTable(
+            listOf(
+                "Status do encerramento" to if (closed) "ENCERRADA" else "Encerramento pendente",
+                "Data/hora encerramento" to data.closureAt,
+                "Responsavel encerramento" to data.closureResponsible,
+                "Condicao final da area" to data.closureAreaCondition,
+                "Observacoes finais" to data.closureNotes,
+                "Pendencias encontradas" to data.closurePending,
+                "Houve incidente?" to if (data.closureIncident) "Sim" else "Nao",
+                "Fotos finais" to data.closurePhotoUris.size.toString()
+            )
+        )
+        drawClosureSignature(data)
+        if (data.closurePhotoUris.isNotEmpty()) {
+            data.closurePhotoUris.forEachIndexed { index, uri -> drawEvidencePhoto(index + 1, uri) }
+        }
+    }
+
+    private fun drawClosureSignature(data: PtData): Unit {
+        ensure(118f)
+        val boxTop = y
+        fillPaint.color = Color.WHITE
+        canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 104f), 6f, 6f, fillPaint)
+        canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 104f), 6f, 6f, strokePaint)
+        canvas.drawText("Assinatura de encerramento", left + 10f, boxTop + 16f, labelPaint)
+        repo.base64ToBitmap(data.closureSignatureB64)?.let { bitmap ->
+            drawBitmapInside(bitmap, RectF(left + 10f, boxTop + 24f, left + 238f, boxTop + 86f))
+        } ?: canvas.drawText("Assinatura pendente", left + 10f, boxTop + 55f, bodyPaint)
+        canvas.drawLine(left + 270f, boxTop + 62f, right - 12f, boxTop + 62f, strokePaint)
+        canvas.drawText(data.closureResponsible.ifBlank { "Responsavel nao informado" }, left + 270f, boxTop + 80f, bodyPaint)
+        canvas.drawText(if (data.closureAt.isNotBlank()) "Encerrado em ${data.closureAt}" else "Encerramento nao registrado", left + 270f, boxTop + 94f, smallPaint)
+        y += 116f
     }
 
     private fun drawEvidencePhoto(number: Int, uriString: String): Unit {
@@ -315,6 +372,16 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
         return when (answer) {
             RiskEngine.NO -> Color.rgb(220, 38, 38)
             "-" -> amber
+            else -> textColor
+        }
+    }
+
+    private fun aprColor(classification: String): Int {
+        return when (classification.uppercase(Locale("pt", "BR"))) {
+            "BAIXO" -> Color.rgb(22, 163, 74)
+            "MEDIO" -> amber
+            "ALTO" -> Color.rgb(220, 38, 38)
+            "CRITICO" -> purple
             else -> textColor
         }
     }
