@@ -18,6 +18,11 @@
         </provider>
 
         <activity
+            android:name=".SignatureActivity"
+            android:screenOrientation="landscape"
+            android:exported="false" />
+
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
