@@ -24,7 +24,16 @@ class PtRepository(context: Context) {
                 manualActivity = o.optString("manualActivity"),
                 activities = o.optJSONArray("activities").toStringSet(), checklist = o.optJSONObject("checklist").toStringMap(), controls = o.optJSONObject("controls").toStringMap(),
                 workers = o.optJSONArray("workers").toWorkers(), photoUris = o.optJSONArray("photoUris").toStringList(),
-                signatureB64 = prefs.getString("signature_b64", o.optString("signatureB64")).orEmpty(), history = o.optJSONArray("history").toHistory()
+                signatureB64 = prefs.getString("signature_b64", o.optString("signatureB64")).orEmpty(),
+                closureAt = o.optString("closureAt"),
+                closureResponsible = o.optString("closureResponsible"),
+                closureAreaCondition = o.optString("closureAreaCondition"),
+                closureNotes = o.optString("closureNotes"),
+                closurePending = o.optString("closurePending"),
+                closureIncident = o.optBoolean("closureIncident", false),
+                closurePhotoUris = o.optJSONArray("closurePhotoUris").toStringList(),
+                closureSignatureB64 = o.optString("closureSignatureB64"),
+                history = o.optJSONArray("history").toHistory()
             )
         }.getOrElse { PtData() }
     }
@@ -57,6 +66,9 @@ class PtRepository(context: Context) {
         put("manualActivity", data.manualActivity)
         put("activities", JSONArray(data.activities.toList())); put("checklist", JSONObject(data.checklist.toMap())); put("controls", JSONObject(data.controls.toMap()))
         put("photoUris", JSONArray(data.photoUris)); put("signatureB64", data.signatureB64)
+        put("closureAt", data.closureAt); put("closureResponsible", data.closureResponsible); put("closureAreaCondition", data.closureAreaCondition)
+        put("closureNotes", data.closureNotes); put("closurePending", data.closurePending); put("closureIncident", data.closureIncident)
+        put("closurePhotoUris", JSONArray(data.closurePhotoUris)); put("closureSignatureB64", data.closureSignatureB64)
         put("workers", JSONArray().also { arr -> data.workers.forEach { arr.put(JSONObject().put("name", it.name).put("role", it.role).put("signatureB64", it.signatureB64).put("signedAt", it.signedAt)) } })
         put("history", JSONArray().also { arr ->
             data.history.forEach {
@@ -73,6 +85,9 @@ class PtRepository(context: Context) {
                         .put("endMillis", it.endMillis)
                         .put("closedAt", it.closedAt)
                         .put("closeNote", it.closeNote)
+                        .put("closeResponsible", it.closeResponsible)
+                        .put("closeIncident", it.closeIncident)
+                        .put("closePhotoCount", it.closePhotoCount)
                 )
             }
         })
@@ -105,7 +120,10 @@ class PtRepository(context: Context) {
                     startMillis = o.optLong("startMillis", 0L),
                     endMillis = o.optLong("endMillis", 0L),
                     closedAt = o.optString("closedAt"),
-                    closeNote = o.optString("closeNote")
+                    closeNote = o.optString("closeNote"),
+                    closeResponsible = o.optString("closeResponsible"),
+                    closeIncident = o.optBoolean("closeIncident", false),
+                    closePhotoCount = o.optInt("closePhotoCount", 0)
                 )
             )
         }
