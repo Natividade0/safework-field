@@ -18,7 +18,10 @@ data class PtHistoryItem(
     val startMillis: Long = 0L,
     val endMillis: Long = 0L,
     val closedAt: String = "",
-    val closeNote: String = ""
+    val closeNote: String = "",
+    val closeResponsible: String = "",
+    val closeIncident: Boolean = false,
+    val closePhotoCount: Int = 0
 ) {
     constructor(emittedAt: String, place: String, fileName: String, status: String = "LIBERADA") : this(
         ptNumber = fileName.removePrefix("SafeField_").removeSuffix(".pdf").ifBlank { "PT emitida" },
@@ -54,5 +57,13 @@ data class PtData(
     var workers: MutableList<Worker> = mutableListOf(),
     var photoUris: MutableList<String> = mutableListOf(),
     var signatureB64: String = "",
+    var closureAt: String = "",
+    var closureResponsible: String = "",
+    var closureAreaCondition: String = "",
+    var closureNotes: String = "",
+    var closurePending: String = "",
+    var closureIncident: Boolean = false,
+    var closurePhotoUris: MutableList<String> = mutableListOf(),
+    var closureSignatureB64: String = "",
     var history: MutableList<PtHistoryItem> = mutableListOf()
 )
