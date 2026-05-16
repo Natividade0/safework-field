@@ -2,12 +2,14 @@ package com.safefield.app
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
+import android.net.Uri
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -56,7 +58,8 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
         drawRisks(data)
         drawWorkers(data)
         drawEvidence(data)
-        drawSignature(data)
+        drawResponsibleSignature(data)
+        drawWorkerSignatures(data)
         finishPage()
         val file = File(context.cacheDir, "SafeField_PT_${System.currentTimeMillis()}.pdf")
         FileOutputStream(file).use { doc.writeTo(it) }
@@ -154,9 +157,27 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
     private fun drawEvidence(data: PtData): Unit {
         section("6. Evidências")
         twoColumnTable(listOf("Fotos anexadas" to data.photoUris.size.toString()))
+        if (data.photoUris.isEmpty()) return
+        data.photoUris.forEachIndexed { index, uri -> drawEvidencePhoto(index + 1, uri) }
     }
 
-    private fun drawSignature(data: PtData): Unit {
+    private fun drawEvidencePhoto(number: Int, uriString: String): Unit {
+        ensure(150f)
+        val boxTop = y
+        fillPaint.color = Color.WHITE
+        canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 138f), 6f, 6f, fillPaint)
+        canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 138f), 6f, 6f, strokePaint)
+        canvas.drawText("Foto $number", left + 10f, boxTop + 16f, labelPaint)
+        val bitmap = loadBitmapFromUri(uriString)
+        if (bitmap == null) {
+            canvas.drawText("Foto $number: não foi possível carregar a imagem", left + 10f, boxTop + 72f, bodyPaint)
+        } else {
+            drawBitmapInside(bitmap, RectF(left + 10f, boxTop + 24f, right - 10f, boxTop + 128f))
+        }
+        y += 150f
+    }
+
+    private fun drawResponsibleSignature(data: PtData): Unit {
         section("7. Assinatura do responsável")
         ensure(138f)
         val boxTop = y
@@ -164,13 +185,53 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
         canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 112f), 6f, 6f, fillPaint)
         canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 112f), 6f, 6f, strokePaint)
         repo.base64ToBitmap(data.signatureB64)?.let { bitmap ->
-            val scaled = scaleSignature(bitmap, 230, 78)
-            canvas.drawBitmap(scaled, left + 18f, boxTop + 12f, null)
+            drawBitmapInside(bitmap, RectF(left + 18f, boxTop + 12f, left + 248f, boxTop + 90f))
         } ?: canvas.drawText("Assinatura pendente", left + 18f, boxTop + 46f, bodyPaint)
         canvas.drawLine(left + 280f, boxTop + 72f, right - 18f, boxTop + 72f, strokePaint)
         canvas.drawText(data.responsible.ifBlank { "Responsável não informado" }, left + 280f, boxTop + 91f, bodyPaint)
         canvas.drawText("Nome e identificação do responsável", left + 280f, boxTop + 104f, smallPaint)
         y += 128f
+    }
+
+    private fun drawWorkerSignatures(data: PtData): Unit {
+        section("8. Assinaturas dos envolvidos")
+        if (data.workers.isEmpty()) {
+            twoColumnTable(listOf("Envolvidos" to "Nenhum trabalhador informado"))
+            return
+        }
+        data.workers.forEachIndexed { index, worker -> drawWorkerSignature(index + 1, worker) }
+    }
+
+    private fun drawWorkerSignature(number: Int, worker: Worker): Unit {
+        ensure(120f)
+        val boxTop = y
+        fillPaint.color = Color.WHITE
+        canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 104f), 6f, 6f, fillPaint)
+        canvas.drawRoundRect(RectF(left, boxTop, right, boxTop + 104f), 6f, 6f, strokePaint)
+        canvas.drawText("Envolvido $number", left + 10f, boxTop + 16f, labelPaint)
+        repo.base64ToBitmap(worker.signatureB64)?.let { bitmap ->
+            drawBitmapInside(bitmap, RectF(left + 10f, boxTop + 24f, left + 238f, boxTop + 86f))
+        } ?: canvas.drawText("Assinatura pendente", left + 10f, boxTop + 55f, bodyPaint)
+        canvas.drawLine(left + 270f, boxTop + 62f, right - 12f, boxTop + 62f, strokePaint)
+        canvas.drawText(worker.name.ifBlank { "Nome não informado" }, left + 270f, boxTop + 80f, bodyPaint)
+        canvas.drawText(worker.role.ifBlank { "Função não informada" }, left + 270f, boxTop + 94f, smallPaint)
+        if (worker.signedAt.isNotBlank()) canvas.drawText("Assinado em ${worker.signedAt}", left + 10f, boxTop + 98f, smallPaint)
+        y += 116f
+    }
+
+    private fun loadBitmapFromUri(uriString: String): Bitmap? {
+        return runCatching {
+            context.contentResolver.openInputStream(Uri.parse(uriString))?.use { input -> BitmapFactory.decodeStream(input) }
+        }.getOrNull()
+    }
+
+    private fun drawBitmapInside(bitmap: Bitmap, bounds: RectF): Unit {
+        val ratio = minOf(bounds.width() / bitmap.width.toFloat(), bounds.height() / bitmap.height.toFloat())
+        val width = bitmap.width * ratio
+        val height = bitmap.height * ratio
+        val leftPos = bounds.left + (bounds.width() - width) / 2f
+        val topPos = bounds.top + (bounds.height() - height) / 2f
+        canvas.drawBitmap(bitmap, null, RectF(leftPos, topPos, leftPos + width, topPos + height), null)
     }
 
     private fun twoColumnTable(items: List<Pair<String, String>>): Unit {
@@ -218,12 +279,5 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
         }
         if (line.isNotBlank()) lines.add(line)
         return lines.ifEmpty { listOf("-") }
-    }
-
-    private fun scaleSignature(bitmap: Bitmap, maxWidth: Int, maxHeight: Int): Bitmap {
-        val ratio = minOf(maxWidth.toFloat() / bitmap.width.toFloat(), maxHeight.toFloat() / bitmap.height.toFloat())
-        val w = (bitmap.width * ratio).toInt().coerceAtLeast(1)
-        val h = (bitmap.height * ratio).toInt().coerceAtLeast(1)
-        return Bitmap.createScaledBitmap(bitmap, w, h, true)
     }
 }
