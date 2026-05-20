@@ -23,6 +23,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".ClosePtActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="true">
