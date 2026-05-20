@@ -127,6 +127,20 @@ object Ui {
         }
     }
 
+    fun iconBubble(context: Context, text: String, color: Int = AMBER): TextView {
+        return TextView(context).apply {
+            this.text = text
+            setTextColor(color)
+            textSize = 15f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            background = bg(PANEL, dp(context, 18), color, 1)
+            minWidth = dp(context, 44)
+            minHeight = dp(context, 44)
+            setPadding(dp(context, 10), dp(context, 8), dp(context, 10), dp(context, 8))
+        }
+    }
+
     fun input(context: Context, hint: String, multi: Boolean = false): EditText {
         return EditText(context).apply {
             this.hint = hint
