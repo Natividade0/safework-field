@@ -20,7 +20,9 @@ data class PtHistoryItem(
     val closedAt: String = "",
     val closeNote: String = "",
     val closeResponsible: String = "",
+    val closeCondition: String = "",
     val closeIncident: Boolean = false,
+    val closeIncidentDescription: String = "",
     val closePhotoCount: Int = 0
 ) {
     constructor(emittedAt: String, place: String, fileName: String, status: String = "LIBERADA") : this(
@@ -57,6 +59,15 @@ data class PtData(
     var workers: MutableList<Worker> = mutableListOf(),
     var photoUris: MutableList<String> = mutableListOf(),
     var signatureB64: String = "",
+    var closedAt: String = "",
+    var closedBy: String = "",
+    var closeCondition: String = "",
+    var closeNotes: String = "",
+    var closePendingIssues: String = "",
+    var closeHadIncident: Boolean = false,
+    var closeIncidentDescription: String = "",
+    var closeSignatureB64: String = "",
+    var closePhotoUris: MutableList<String> = mutableListOf(),
     var closureAt: String = "",
     var closureResponsible: String = "",
     var closureAreaCondition: String = "",
