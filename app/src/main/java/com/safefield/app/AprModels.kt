@@ -9,5 +9,8 @@ data class AprItem(
     val epi: String,
     val severity: Int,
     val probability: Int,
-    val classification: String
+    val classification: String,
+    val step: String = "",
+    val recommendedEpi: String = epi,
+    val riskLevel: String = classification
 )
