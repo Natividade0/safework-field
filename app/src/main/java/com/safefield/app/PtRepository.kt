@@ -25,6 +25,15 @@ class PtRepository(context: Context) {
                 activities = o.optJSONArray("activities").toStringSet(), checklist = o.optJSONObject("checklist").toStringMap(), controls = o.optJSONObject("controls").toStringMap(),
                 workers = o.optJSONArray("workers").toWorkers(), photoUris = o.optJSONArray("photoUris").toStringList(),
                 signatureB64 = prefs.getString("signature_b64", o.optString("signatureB64")).orEmpty(),
+                closedAt = o.optString("closedAt", o.optString("closureAt")),
+                closedBy = o.optString("closedBy", o.optString("closureResponsible")),
+                closeCondition = o.optString("closeCondition", o.optString("closureAreaCondition")),
+                closeNotes = o.optString("closeNotes", o.optString("closureNotes")),
+                closePendingIssues = o.optString("closePendingIssues", o.optString("closurePending")),
+                closeHadIncident = o.optBoolean("closeHadIncident", o.optBoolean("closureIncident", false)),
+                closeIncidentDescription = o.optString("closeIncidentDescription"),
+                closeSignatureB64 = o.optString("closeSignatureB64", o.optString("closureSignatureB64")),
+                closePhotoUris = o.optJSONArray("closePhotoUris").toStringList().ifEmpty { o.optJSONArray("closurePhotoUris").toStringList() },
                 closureAt = o.optString("closureAt"),
                 closureResponsible = o.optString("closureResponsible"),
                 closureAreaCondition = o.optString("closureAreaCondition"),
@@ -66,6 +75,9 @@ class PtRepository(context: Context) {
         put("manualActivity", data.manualActivity)
         put("activities", JSONArray(data.activities.toList())); put("checklist", JSONObject(data.checklist.toMap())); put("controls", JSONObject(data.controls.toMap()))
         put("photoUris", JSONArray(data.photoUris)); put("signatureB64", data.signatureB64)
+        put("closedAt", data.closedAt); put("closedBy", data.closedBy); put("closeCondition", data.closeCondition)
+        put("closeNotes", data.closeNotes); put("closePendingIssues", data.closePendingIssues); put("closeHadIncident", data.closeHadIncident)
+        put("closeIncidentDescription", data.closeIncidentDescription); put("closeSignatureB64", data.closeSignatureB64); put("closePhotoUris", JSONArray(data.closePhotoUris))
         put("closureAt", data.closureAt); put("closureResponsible", data.closureResponsible); put("closureAreaCondition", data.closureAreaCondition)
         put("closureNotes", data.closureNotes); put("closurePending", data.closurePending); put("closureIncident", data.closureIncident)
         put("closurePhotoUris", JSONArray(data.closurePhotoUris)); put("closureSignatureB64", data.closureSignatureB64)
@@ -86,7 +98,9 @@ class PtRepository(context: Context) {
                         .put("closedAt", it.closedAt)
                         .put("closeNote", it.closeNote)
                         .put("closeResponsible", it.closeResponsible)
+                        .put("closeCondition", it.closeCondition)
                         .put("closeIncident", it.closeIncident)
+                        .put("closeIncidentDescription", it.closeIncidentDescription)
                         .put("closePhotoCount", it.closePhotoCount)
                 )
             }
@@ -122,7 +136,9 @@ class PtRepository(context: Context) {
                     closedAt = o.optString("closedAt"),
                     closeNote = o.optString("closeNote"),
                     closeResponsible = o.optString("closeResponsible"),
+                    closeCondition = o.optString("closeCondition"),
                     closeIncident = o.optBoolean("closeIncident", false),
+                    closeIncidentDescription = o.optString("closeIncidentDescription"),
                     closePhotoCount = o.optInt("closePhotoCount", 0)
                 )
             )
