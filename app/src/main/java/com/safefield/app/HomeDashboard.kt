@@ -53,7 +53,7 @@ internal class HomeDashboard(
         info.setPadding(14.dp(), 0, 0, 0)
         info.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         info.addView(Ui.label(activity, "Painel de campo"))
-        info.addView(Ui.value(activity, "PT, inspecoes, pendencias, evidencias e historico.", Ui.TEXT))
+        info.addView(Ui.value(activity, "PT, inspeções, pendências, evidências e histórico.", Ui.TEXT))
         top.addView(info)
         top.addView(Ui.chip(activity, flow.status.name, statusColor(flow.status)))
         card.addView(top)
@@ -64,7 +64,7 @@ internal class HomeDashboard(
         val card = Ui.heroCard(activity)
         val top = Ui.row(activity)
         val titleBox = Ui.vbox(activity)
-        titleBox.addView(Ui.label(activity, "Permissao de Trabalho"))
+        titleBox.addView(Ui.label(activity, "Permissão de Trabalho"))
         titleBox.addView(Ui.title(activity, flow.number, 23f))
         titleBox.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         top.addView(titleBox)
@@ -73,7 +73,7 @@ internal class HomeDashboard(
         card.addView(Ui.value(activity, flow.validityLabel).margin(0, 8.dp()))
         flow.validityAlert?.let { card.addView(Ui.value(activity, it, Ui.AMBER_SOFT).margin(0, 3.dp())) }
         card.addView(metricStrip(listOf(
-            Indicator("Criticas", flow.critical.size.toString(), Ui.RED),
+            Indicator("Críticas", flow.critical.size.toString(), Ui.RED),
             Indicator("Importantes", flow.important.size.toString(), Ui.AMBER),
             Indicator("Fotos", data.photoUris.size.toString(), Ui.AMBER_SOFT)
         )).margin(0, 10.dp()))
@@ -87,8 +87,8 @@ internal class HomeDashboard(
         val grid = GridLayout(activity)
         grid.columnCount = 2
         listOf(
-            Indicator("Pendencias criticas", flow.critical.size.toString(), Ui.RED),
-            Indicator("Pendencias importantes", flow.important.size.toString(), Ui.AMBER),
+            Indicator("Pendências críticas", flow.critical.size.toString(), Ui.RED),
+            Indicator("Pendências importantes", flow.important.size.toString(), Ui.AMBER),
             Indicator("Fotos anexadas", data.photoUris.size.toString(), Ui.AMBER_SOFT),
             Indicator("Trabalhadores", data.workers.size.toString(), Ui.GREEN)
         ).forEach { item ->
@@ -109,7 +109,7 @@ internal class HomeDashboard(
         val last = data.history.firstOrNull()
         if (last != null) {
             card.addView(Ui.divider(activity).margin(0, 10.dp()))
-            card.addView(Ui.label(activity, "Ultima emissao"))
+            card.addView(Ui.label(activity, "Última emissão"))
             card.addView(Ui.value(activity, "${last.ptNumber.ifBlank { "PT" }} - ${last.emittedAt}", Ui.TEXT).margin(0, 4.dp()))
             card.addView(Ui.label(activity, last.place.ifBlank { "Sem local" }))
         }
@@ -123,10 +123,10 @@ internal class HomeDashboard(
         grid.columnCount = 2
         listOf(
             "Continuar PT" to { openPt() },
-            "Ver pendencias" to { openPending(flow) },
-            "Historico" to { showHistoryDialog() },
-            "Inspecao" to { openPlaceholder("Inspecao") },
-            "Modulos" to { showMenuDialog() }
+            "Ver pendências" to { openPending(flow) },
+            "Histórico" to { showHistoryDialog() },
+            "Inspeção" to { openInspection() },
+            "Módulos" to { showMenuDialog() }
         ).forEach { shortcut ->
             val button = Ui.ghostButton(activity, shortcut.first)
             button.setOnClickListener { shortcut.second.invoke() }
@@ -141,8 +141,8 @@ internal class HomeDashboard(
         val dialog = AlertDialog.Builder(activity).create()
         val panel = Ui.vbox(activity, 16.dp())
         panel.background = Ui.bg(Ui.PANEL, 24.dp(), Ui.BORDER, 1)
-        panel.addView(Ui.chip(activity, "GESTAO DE PTS", Ui.AMBER))
-        panel.addView(Ui.title(activity, "Historico de PTs", 22f).margin(0, 8.dp()))
+        panel.addView(Ui.chip(activity, "GESTÃO DE PTS", Ui.AMBER))
+        panel.addView(Ui.title(activity, "Histórico de PTs", 22f).margin(0, 8.dp()))
         if (data.history.isEmpty()) {
             panel.addView(Ui.label(activity, "Nenhuma PT emitida neste aparelho.").margin(0, 8.dp()))
         } else {
@@ -167,15 +167,16 @@ internal class HomeDashboard(
         val panel = Ui.vbox(activity, 16.dp())
         panel.background = Ui.bg(Ui.PANEL, 24.dp(), Ui.BORDER, 1)
         panel.addView(Ui.chip(activity, "MENU", Ui.AMBER))
-        panel.addView(Ui.title(activity, "Modulos", 22f).margin(0, 10.dp()))
-        panel.addView(menuItem("Permissao de Trabalho", "Abrir fluxo completo", "PT") { dialog.dismiss(); openPt() }.margin(0, 10.dp()))
-        modules().filter { it != "Permissao de Trabalho" }.forEach { name ->
-            panel.addView(menuItem(name, "Em desenvolvimento", initial(name)) {
+        panel.addView(Ui.title(activity, "Módulos", 22f).margin(0, 10.dp()))
+        panel.addView(menuItem("Permissão de Trabalho", "Abrir fluxo completo", "PT") { dialog.dismiss(); openPt() }.margin(0, 10.dp()))
+        modules().filter { it != "Permissão de Trabalho" }.forEach { name ->
+            val description = if (name == "Inspeção") "Registros técnicos e relatório PDF" else "Em desenvolvimento"
+            panel.addView(menuItem(name, description, initial(name)) {
                 dialog.dismiss()
-                openPlaceholder(name)
+                if (name == "Inspeção") openInspection() else openPlaceholder(name)
             }.margin(0, 5.dp()))
         }
-        panel.addView(menuItem("Configuracoes / Sobre", "Informacoes do aplicativo", "SF") { dialog.dismiss(); openPlaceholder("Sobre o SafeField") }.margin(0, 5.dp()))
+        panel.addView(menuItem("Configurações / Sobre", "Informações do aplicativo", "SF") { dialog.dismiss(); openPlaceholder("Sobre o SafeField") }.margin(0, 5.dp()))
         dialog.setView(panel)
         dialog.show()
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
@@ -185,7 +186,7 @@ internal class HomeDashboard(
         val item = Ui.card(activity)
         item.setPadding(12.dp(), 12.dp(), 12.dp(), 12.dp())
         val row = Ui.row(activity)
-        row.addView(bubble(initials, if (title.contains("Trabalho")) Ui.AMBER else Ui.BORDER))
+        row.addView(bubble(initials, if (title.contains("Trabalho") || title == "Inspeção") Ui.AMBER else Ui.BORDER))
         val texts = Ui.vbox(activity)
         texts.setPadding(12.dp(), 0, 0, 0)
         texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -198,18 +199,19 @@ internal class HomeDashboard(
     }
 
     private fun moduleTile(name: String, compact: Boolean): LinearLayout {
-        val isPt = name == "Permissao de Trabalho"
-        val card = if (isPt) Ui.heroCard(activity) else Ui.card(activity)
+        val isPt = name == "Permissão de Trabalho"
+        val isInspection = name == "Inspeção"
+        val card = if (isPt || isInspection) Ui.heroCard(activity) else Ui.card(activity)
         val row = Ui.row(activity)
-        row.addView(bubble(initial(name), if (isPt) Ui.AMBER else Ui.BORDER))
+        row.addView(bubble(initial(name), if (isPt || isInspection) Ui.AMBER else Ui.BORDER))
         val texts = Ui.vbox(activity)
         texts.setPadding(12.dp(), 0, 0, 0)
         texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         texts.addView(Ui.title(activity, name, if (compact) 15f else 18f))
-        texts.addView(Ui.label(activity, if (isPt) "Fluxo completo" else "Em desenvolvimento"))
+        texts.addView(Ui.label(activity, when { isPt -> "Fluxo completo"; isInspection -> "Relatório de campo"; else -> "Em desenvolvimento" }))
         row.addView(texts)
         card.addView(row)
-        card.setOnClickListener { if (isPt) openPt() else openPlaceholder(name) }
+        card.setOnClickListener { if (isPt) openPt() else if (isInspection) openInspection() else openPlaceholder(name) }
         return card
     }
 
@@ -278,7 +280,7 @@ internal class HomeDashboard(
         return when {
             item.status == "ENCERRADA" -> "ENCERRADA"
             item.endMillis > 0L && System.currentTimeMillis() > item.endMillis -> "VENCIDA"
-            else -> "VALIDA"
+            else -> "VÁLIDA"
         }
     }
 
@@ -299,16 +301,20 @@ internal class HomeDashboard(
 
     private fun initial(name: String): String {
         return when (name) {
-            "Permissao de Trabalho" -> "PT"
-            "Inspecao" -> "IN"
-            "Ocorrencia" -> "OC"
+            "Permissão de Trabalho" -> "PT"
+            "Inspeção" -> "IN"
+            "Ocorrência" -> "OC"
             "Colaboradores" -> "CL"
             "Dashboard" -> "DB"
             else -> name.take(3).uppercase()
         }
     }
 
-    private fun modules(): List<String> = listOf("Permissao de Trabalho", "DDS", "EPI", "Inspecao", "Ocorrencia", "Colaboradores", "Dashboard")
+    private fun modules(): List<String> = listOf("Permissão de Trabalho", "DDS", "EPI", "Inspeção", "Ocorrência", "Colaboradores", "Dashboard")
+
+    private fun openInspection(): Unit {
+        InspectionModule(activity) { openModules() }.show()
+    }
 
     private fun Int.dp(): Int = Ui.dp(activity, this)
 }
