@@ -53,7 +53,7 @@ internal class HomeDashboard(
         info.setPadding(14.dp(), 0, 0, 0)
         info.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         info.addView(Ui.label(activity, "Painel de campo"))
-        info.addView(Ui.value(activity, "PT, APR, pendencias, evidencias e historico.", Ui.TEXT))
+        info.addView(Ui.value(activity, "PT, inspecoes, pendencias, evidencias e historico.", Ui.TEXT))
         top.addView(info)
         top.addView(Ui.chip(activity, flow.status.name, statusColor(flow.status)))
         card.addView(top)
@@ -125,7 +125,7 @@ internal class HomeDashboard(
             "Continuar PT" to { openPt() },
             "Ver pendencias" to { openPending(flow) },
             "Historico" to { showHistoryDialog() },
-            "APR" to { openApr() },
+            "Inspecao" to { openPlaceholder("Inspecao") },
             "Modulos" to { showMenuDialog() }
         ).forEach { shortcut ->
             val button = Ui.ghostButton(activity, shortcut.first)
@@ -170,10 +170,9 @@ internal class HomeDashboard(
         panel.addView(Ui.title(activity, "Modulos", 22f).margin(0, 10.dp()))
         panel.addView(menuItem("Permissao de Trabalho", "Abrir fluxo completo", "PT") { dialog.dismiss(); openPt() }.margin(0, 10.dp()))
         modules().filter { it != "Permissao de Trabalho" }.forEach { name ->
-            val description = if (name == "APR") "Analise Preliminar de Risco" else "Em desenvolvimento"
-            panel.addView(menuItem(name, description, initial(name)) {
+            panel.addView(menuItem(name, "Em desenvolvimento", initial(name)) {
                 dialog.dismiss()
-                if (name == "APR") openApr() else openPlaceholder(name)
+                openPlaceholder(name)
             }.margin(0, 5.dp()))
         }
         panel.addView(menuItem("Configuracoes / Sobre", "Informacoes do aplicativo", "SF") { dialog.dismiss(); openPlaceholder("Sobre o SafeField") }.margin(0, 5.dp()))
@@ -186,7 +185,7 @@ internal class HomeDashboard(
         val item = Ui.card(activity)
         item.setPadding(12.dp(), 12.dp(), 12.dp(), 12.dp())
         val row = Ui.row(activity)
-        row.addView(bubble(initials, if (title.contains("Trabalho") || title == "APR") Ui.AMBER else Ui.BORDER))
+        row.addView(bubble(initials, if (title.contains("Trabalho")) Ui.AMBER else Ui.BORDER))
         val texts = Ui.vbox(activity)
         texts.setPadding(12.dp(), 0, 0, 0)
         texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -200,18 +199,17 @@ internal class HomeDashboard(
 
     private fun moduleTile(name: String, compact: Boolean): LinearLayout {
         val isPt = name == "Permissao de Trabalho"
-        val isApr = name == "APR"
-        val card = if (isPt || isApr) Ui.heroCard(activity) else Ui.card(activity)
+        val card = if (isPt) Ui.heroCard(activity) else Ui.card(activity)
         val row = Ui.row(activity)
-        row.addView(bubble(initial(name), if (isPt || isApr) Ui.AMBER else Ui.BORDER))
+        row.addView(bubble(initial(name), if (isPt) Ui.AMBER else Ui.BORDER))
         val texts = Ui.vbox(activity)
         texts.setPadding(12.dp(), 0, 0, 0)
         texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         texts.addView(Ui.title(activity, name, if (compact) 15f else 18f))
-        texts.addView(Ui.label(activity, when { isPt -> "Fluxo completo"; isApr -> "Analise preliminar"; else -> "Em desenvolvimento" }))
+        texts.addView(Ui.label(activity, if (isPt) "Fluxo completo" else "Em desenvolvimento"))
         row.addView(texts)
         card.addView(row)
-        card.setOnClickListener { if (isPt) openPt() else if (isApr) openApr() else openPlaceholder(name) }
+        card.setOnClickListener { if (isPt) openPt() else openPlaceholder(name) }
         return card
     }
 
@@ -310,11 +308,7 @@ internal class HomeDashboard(
         }
     }
 
-    private fun modules(): List<String> = listOf("Permissao de Trabalho", "APR", "DDS", "EPI", "Inspecao", "Ocorrencia", "Colaboradores", "Dashboard")
-
-    private fun openApr(): Unit {
-        activity.startActivity(Intent(activity, AprActivity::class.java))
-    }
+    private fun modules(): List<String> = listOf("Permissao de Trabalho", "DDS", "EPI", "Inspecao", "Ocorrencia", "Colaboradores", "Dashboard")
 
     private fun Int.dp(): Int = Ui.dp(activity, this)
 }
