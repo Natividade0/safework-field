@@ -227,7 +227,7 @@ class PtPdfGenerator(private val context: Context, private val repo: PtRepositor
 
     private fun drawApr(data: PtData): Unit {
         section("6. APR AUTOMATICA")
-        val apr = AprEngine.generate(data)
+        val apr = AprEngine.generate(data.activities, data.description, "", data.tools)
         tableHeader(floatArrayOf(92f, 112f, 66f, 155f, 98f), arrayOf("Atividade", "Risco", "Nivel", "Controle", "EPI"))
         if (apr.isEmpty()) {
             tableRow(floatArrayOf(92f, 112f, 66f, 155f, 98f), arrayOf("-", "APR nao gerada", "-", "Informe atividade critica ou descricao detalhada", "-"))
