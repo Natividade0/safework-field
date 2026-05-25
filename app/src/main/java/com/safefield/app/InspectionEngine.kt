@@ -54,7 +54,6 @@ object InspectionEngine {
         if (data.inspector.isBlank()) list.add("Inspetor pendente")
         if (data.records.isEmpty()) list.add("Nenhum registro de campo adicionado")
         if (data.records.any { it.description.isBlank() }) list.add("Existe registro sem descrição")
-        if (data.inspectorSignatureB64.isBlank()) list.add("Assinatura do inspetor pendente")
         return list
     }
 
