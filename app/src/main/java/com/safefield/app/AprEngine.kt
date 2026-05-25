@@ -15,10 +15,6 @@ object AprEngine {
         "Montagem industrial"
     )
 
-    fun generate(data: AprData): List<AprItem> {
-        return generate(data.selectedActivities, data.activityDescription, data.manualActivity, data.tools)
-    }
-
     fun generate(selected: Set<String>, description: String, manual: String, tools: String = ""): List<AprItem> {
         val detected = linkedSetOf<String>()
         selected.forEach { detected.add(normalizeActivity(it)) }
