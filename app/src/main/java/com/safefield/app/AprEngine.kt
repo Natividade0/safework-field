@@ -15,10 +15,6 @@ object AprEngine {
         "Montagem industrial"
     )
 
-    fun generate(data: PtData): List<AprItem> {
-        return generate(data.activities, data.description, data.manualActivity, data.tools)
-    }
-
     fun generate(data: AprData): List<AprItem> {
         return generate(data.selectedActivities, data.activityDescription, data.manualActivity, data.tools)
     }
