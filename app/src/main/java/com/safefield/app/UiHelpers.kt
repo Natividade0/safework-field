@@ -20,18 +20,19 @@ import java.util.Locale
 
 object Ui {
     const val SHELL = 0xFF05070B.toInt()
-    const val DARK = 0xFF0F1117.toInt()
-    const val PANEL = 0xFF12161E.toInt()
-    const val CARD = 0xFF181C24.toInt()
-    const val CARD_SOFT = 0xFF202632.toInt()
-    const val BORDER = 0xFF2A3140.toInt()
-    const val BORDER_SOFT = 0xFF353D4D.toInt()
+    const val DARK = 0xFF0B1220.toInt()
+    const val PANEL = 0xFF0F172A.toInt()
+    const val CARD = 0xFF111827.toInt()
+    const val CARD_SOFT = 0xFF172033.toInt()
+    const val BORDER = 0xFF243047.toInt()
+    const val BORDER_SOFT = 0xFF334155.toInt()
     const val AMBER = 0xFFF59E0B.toInt()
     const val AMBER_SOFT = 0xFFFCD34D.toInt()
-    const val GREEN = 0xFF22C55E.toInt()
+    const val GREEN = 0xFF10B981.toInt()
     const val RED = 0xFFEF4444.toInt()
-    const val TEXT = 0xFFE6EDF3.toInt()
-    const val MUTED = 0xFF9CA3AF.toInt()
+    const val BLUE = 0xFF0EA5E9.toInt()
+    const val TEXT = 0xFFF8FAFC.toInt()
+    const val MUTED = 0xFF94A3B8.toInt()
 
     val dateTime = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR"))
 
@@ -50,10 +51,10 @@ object Ui {
     fun ripple(color: Int, radius: Int, strokeColor: Int = Color.TRANSPARENT, strokeWidth: Int = 0): RippleDrawable {
         val normal = bg(color, radius, strokeColor, strokeWidth)
         val mask = bg(Color.WHITE, radius)
-        return RippleDrawable(ColorStateList.valueOf(0x33FCD34D), normal, mask)
+        return RippleDrawable(ColorStateList.valueOf(0x220EA5E9), normal, mask)
     }
 
-    fun gradient(radius: Int, start: Int = 0xFF1B202B.toInt(), end: Int = 0xFF0F1117.toInt(), stroke: Int = BORDER): GradientDrawable {
+    fun gradient(radius: Int, start: Int = 0xFF0B1220.toInt(), end: Int = 0xFF0F172A.toInt(), stroke: Int = BORDER): GradientDrawable {
         return GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(start, end)).apply {
             cornerRadius = radius.toFloat()
             setStroke(1, stroke)
@@ -80,7 +81,7 @@ object Ui {
             setTextColor(TEXT)
             textSize = size
             typeface = Typeface.DEFAULT_BOLD
-            includeFontPadding = true
+            includeFontPadding = false
             setLineSpacing(0f, 1.05f)
         }
     }
@@ -90,8 +91,9 @@ object Ui {
             this.text = text
             setTextColor(MUTED)
             textSize = 13f
-            includeFontPadding = true
-            setLineSpacing(0f, 1.08f)
+            typeface = Typeface.DEFAULT
+            includeFontPadding = false
+            setLineSpacing(0f, 1.12f)
         }
     }
 
@@ -100,43 +102,47 @@ object Ui {
             this.text = text
             setTextColor(color)
             textSize = 15f
-            includeFontPadding = true
-            setLineSpacing(0f, 1.08f)
+            typeface = Typeface.DEFAULT
+            includeFontPadding = false
+            setLineSpacing(0f, 1.1f)
         }
     }
 
     fun section(context: Context, text: String): TextView {
         return TextView(context).apply {
             this.text = text.uppercase(Locale("pt", "BR"))
-            setTextColor(AMBER_SOFT)
-            textSize = 12f
+            setTextColor(BLUE)
+            textSize = 11.5f
             typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
             letterSpacing = 0.08f
         }
     }
 
-    fun chip(context: Context, text: String, color: Int = AMBER): TextView {
+    fun chip(context: Context, text: String, color: Int = BLUE): TextView {
         return TextView(context).apply {
             this.text = text
             setTextColor(color)
-            textSize = 12f
+            textSize = 11.5f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            background = bg(0x22111111, dp(context, 999), color, 1)
-            setPadding(dp(context, 10), dp(context, 5), dp(context, 10), dp(context, 5))
+            includeFontPadding = false
+            background = bg(0x141E293B, dp(context, 999), color, 1)
+            setPadding(dp(context, 10), dp(context, 6), dp(context, 10), dp(context, 6))
         }
     }
 
-    fun iconBubble(context: Context, text: String, color: Int = AMBER): TextView {
+    fun iconBubble(context: Context, text: String, color: Int = BLUE): TextView {
         return TextView(context).apply {
             this.text = text
             setTextColor(color)
-            textSize = 15f
+            textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            background = bg(PANEL, dp(context, 18), color, 1)
-            minWidth = dp(context, 44)
-            minHeight = dp(context, 44)
+            includeFontPadding = false
+            background = bg(0x111E293B, dp(context, 16), color, 1)
+            minWidth = dp(context, 42)
+            minHeight = dp(context, 42)
             setPadding(dp(context, 10), dp(context, 8), dp(context, 10), dp(context, 8))
         }
     }
@@ -144,32 +150,33 @@ object Ui {
     fun input(context: Context, hint: String, multi: Boolean = false): EditText {
         return EditText(context).apply {
             this.hint = hint
-            setHintTextColor(0xFF6B7280.toInt())
+            setHintTextColor(0xFF64748B.toInt())
             setTextColor(TEXT)
             textSize = 15f
+            typeface = Typeface.DEFAULT
             background = bg(PANEL, dp(context, 14), BORDER, 1)
             setPadding(dp(context, 14), dp(context, 11), dp(context, 14), dp(context, 11))
-            minHeight = dp(context, 54)
+            minHeight = dp(context, 52)
             if (multi) {
                 minLines = 3
                 gravity = Gravity.TOP
             }
             setOnFocusChangeListener { view, focused ->
-                view.background = if (focused) bg(PANEL, dp(context, 14), AMBER, 2) else bg(PANEL, dp(context, 14), BORDER, 1)
+                view.background = if (focused) bg(PANEL, dp(context, 14), BLUE, 2) else bg(PANEL, dp(context, 14), BORDER, 1)
             }
         }
     }
 
-    fun button(context: Context, text: String, color: Int = AMBER): Button {
+    fun button(context: Context, text: String, color: Int = BLUE): Button {
         return Button(context).apply {
             this.text = text
-            setTextColor(if (color == AMBER) Color.BLACK else Color.WHITE)
+            setTextColor(Color.WHITE)
             textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
-            background = ripple(color, dp(context, 16))
-            minHeight = dp(context, 54)
+            background = ripple(color, dp(context, 14))
+            minHeight = dp(context, 52)
             isAllCaps = false
-            elevation = dp(context, 3).toFloat()
+            elevation = 0f
             stateListAnimator = null
             setPadding(dp(context, 14), dp(context, 8), dp(context, 14), dp(context, 8))
             pressFeedback(this)
@@ -179,7 +186,7 @@ object Ui {
     fun ghostButton(context: Context, text: String): Button {
         return button(context, text, PANEL).apply {
             setTextColor(TEXT)
-            background = ripple(0x0012161E, dp(context, 16), BORDER_SOFT, 1)
+            background = ripple(0x0012161E, dp(context, 14), BORDER_SOFT, 1)
             elevation = 0f
         }
     }
@@ -189,19 +196,19 @@ object Ui {
     }
 
     fun card(context: Context): LinearLayout {
-        return vbox(context, dp(context, 16)).apply {
-            background = ripple(CARD, dp(context, 22), BORDER, 1)
-            elevation = dp(context, 4).toFloat()
-            translationZ = dp(context, 2).toFloat()
+        return vbox(context, dp(context, 14)).apply {
+            background = ripple(CARD, dp(context, 20), BORDER, 1)
+            elevation = 0f
+            translationZ = 0f
             pressFeedback(this)
         }
     }
 
     fun heroCard(context: Context): LinearLayout {
-        return vbox(context, dp(context, 18)).apply {
-            background = gradient(dp(context, 26), 0xFF1F2632.toInt(), 0xFF0B0E14.toInt(), 0xFF3A2A12.toInt())
-            elevation = dp(context, 6).toFloat()
-            translationZ = dp(context, 3).toFloat()
+        return vbox(context, dp(context, 16)).apply {
+            background = gradient(dp(context, 22), 0xFF0B1220.toInt(), 0xFF111827.toInt(), BORDER)
+            elevation = 0f
+            translationZ = 0f
             pressFeedback(this)
         }
     }
@@ -222,7 +229,7 @@ object Ui {
         val safeDone = done.coerceIn(0, safeTotal)
         repeat(safeTotal) { index ->
             val bar = View(context)
-            bar.background = bg(if (index < safeDone) AMBER else 0xFF303746.toInt(), dp(context, 999))
+            bar.background = bg(if (index < safeDone) BLUE else 0xFF263244.toInt(), dp(context, 999))
             outer.addView(bar, LinearLayout.LayoutParams(0, dp(context, 8), 1f).apply {
                 setMargins(dp(context, 2), 0, dp(context, 2), 0)
             })
@@ -232,18 +239,18 @@ object Ui {
 
     fun animateIn(view: View): View {
         view.alpha = 0f
-        view.scaleX = 0.98f
-        view.scaleY = 0.98f
-        view.translationY = 14f
-        view.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setDuration(240L).start()
+        view.scaleX = 0.99f
+        view.scaleY = 0.99f
+        view.translationY = 10f
+        view.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setDuration(200L).start()
         return view
     }
 
     fun pressFeedback(view: View): Unit {
         view.setOnTouchListener { v, event ->
             when (event.action) {
-                MotionEvent.ACTION_DOWN -> v.animate().scaleX(0.985f).scaleY(0.985f).setDuration(80L).start()
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> v.animate().scaleX(1f).scaleY(1f).setDuration(120L).start()
+                MotionEvent.ACTION_DOWN -> v.animate().scaleX(0.99f).scaleY(0.99f).setDuration(70L).start()
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> v.animate().scaleX(1f).scaleY(1f).setDuration(100L).start()
             }
             false
         }
