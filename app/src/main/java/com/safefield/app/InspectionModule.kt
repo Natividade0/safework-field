@@ -49,27 +49,26 @@ class InspectionModule(
 
     private fun showCentral(): Unit {
         val summary = InspectionEngine.summary(data)
-        screen("Inspeção de Campo", "Ronda rápida, achados e plano de ação", onBackHome) { root ->
+        screen("Inspeção de Campo", "Use em 3 passos simples", onBackHome) { root ->
             val hero = Ui.heroCard(activity)
-            hero.addView(Ui.section(activity, data.environmentType.ifBlank { "Ambiente não definido" }))
-            hero.addView(Ui.title(activity, data.number.ifBlank { InspectionEngine.number(data.dateMillis) }, 26f))
-            hero.addView(Ui.label(activity, data.place.ifBlank { "Inspeção pessoal profissional" }))
+            hero.addView(Ui.section(activity, data.environmentType.ifBlank { "Escolha o ambiente" }))
+            hero.addView(Ui.title(activity, "Ronda de segurança", 25f))
+            hero.addView(Ui.label(activity, data.place.ifBlank { "Registre o local, os achados e gere um relatório." }))
             val chips = Ui.row(activity)
             chips.addView(Ui.chip(activity, "${summary.total} achado(s)", Ui.AMBER))
-            chips.addView(Ui.chip(activity, "${summary.open} aberto(s)", if (summary.open > 0) Ui.RED else Ui.GREEN), lpWrap(8, 0, 0, 0))
+            chips.addView(Ui.chip(activity, "${summary.open} em aberto", if (summary.open > 0) Ui.RED else Ui.GREEN), lpWrap(8, 0, 0, 0))
             hero.addView(chips, spaced())
             root.addView(hero, spaced())
 
-            val row = Ui.row(activity)
-            row.addView(metric("Abertos", summary.open.toString(), if (summary.open > 0) Ui.RED else Ui.GREEN), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            row.addView(metric("Alta/Crítica", summary.highCritical.toString(), if (summary.highCritical > 0) Ui.RED else Ui.GREEN), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(8), 0, 0, 0) })
-            root.addView(row, spaced())
+            root.addView(stepCard("1", "Informar local", "Empresa, setor, ambiente e inspetor", isDone = data.company.isNotBlank() && data.place.isNotBlank() && data.inspector.isNotBlank()) { showData() }, spaced())
+            root.addView(stepCard("2", "Registrar achados", "Anote o que foi visto em campo", isDone = data.records.isNotEmpty()) { showRecords() }, spaced())
+            root.addView(stepCard("3", "Gerar relatório", "Revise e compartilhe o PDF", isDone = false) { showReview() }, spaced())
 
-            root.addView(actionCard("Identificação rápida", "Empresa, local, inspetor e tipo de ambiente") { showData() }, spaced())
-            root.addView(actionCard("+ Adicionar achado", "O que foi encontrado, risco e ação") { showRecordDialog(null) }, spaced())
-            root.addView(actionCard("Achados encontrados", "Editar, remover e acompanhar status") { showRecords() }, spaced())
-            root.addView(actionCard("Plano de ação", "Pendências geradas pelos achados") { showActionPlan() }, spaced())
-            root.addView(actionCard("Revisar e gerar relatório", "PDF profissional da inspeção") { showReview() }, spaced())
+            val support = Ui.card(activity)
+            support.addView(Ui.section(activity, "Resumo"))
+            support.addView(Ui.value(activity, "Abertos: ${summary.open}  •  Alta/Crítica: ${summary.highCritical}", Ui.TEXT))
+            support.addView(Ui.label(activity, "O plano de ação é montado automaticamente com base nos achados."), smallTop())
+            root.addView(support, spaced())
 
             val actions = Ui.row(activity)
             actions.addView(Ui.ghostButton(activity, "Histórico").apply { setOnClickListener { showHistoryDialog() } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -78,8 +77,8 @@ class InspectionModule(
         }
     }
 
-    private fun showData(): Unit = screen("Identificação rápida", "Defina o contexto da inspeção") { root ->
-        val environmentButton = Ui.button(activity, "Tipo de ambiente: ${data.environmentType.ifBlank { "Outro" }}")
+    private fun showData(): Unit = screen("Passo 1: Local", "Preencha só o necessário para identificar a inspeção") { root ->
+        val environmentButton = Ui.button(activity, "Ambiente: ${data.environmentType.ifBlank { "Outro" }}")
         environmentButton.setOnClickListener {
             choose("Tipo de ambiente", InspectionEngine.environments, data.environmentType.ifBlank { "Outro" }) {
                 data.environmentType = it
@@ -90,10 +89,10 @@ class InspectionModule(
         root.addView(environmentButton, spaced())
 
         val company = field(root, "Empresa / cliente", data.company)
+        val place = field(root, "Local da inspeção", data.place)
         val area = field(root, "Área / setor", data.area)
-        val place = field(root, "Local", data.place)
-        val inspector = field(root, "Inspetor", data.inspector)
-        val objective = field(root, "Objetivo da visita", data.objective, true)
+        val inspector = field(root, "Seu nome / inspetor", data.inspector)
+        val objective = field(root, "Observação inicial", data.objective, true)
 
         val card = Ui.card(activity)
         card.addView(Ui.section(activity, "Data e hora"))
@@ -101,7 +100,7 @@ class InspectionModule(
         card.addView(Ui.button(activity, "Usar data/hora atual").apply { setOnClickListener { data.dateMillis = System.currentTimeMillis(); repo.save(data); showData() } }, buttonLp())
         root.addView(card, spaced())
 
-        root.addView(Ui.button(activity, "Salvar identificação").apply {
+        root.addView(Ui.button(activity, "Salvar e continuar").apply {
             setOnClickListener {
                 data.company = company.text.toString()
                 data.area = area.text.toString()
@@ -110,21 +109,25 @@ class InspectionModule(
                 data.objective = objective.text.toString()
                 if (data.number.isBlank()) data.number = InspectionEngine.number(data.dateMillis)
                 repo.save(data)
-                showCentral()
+                showRecords()
             }
         }, spaced())
     }
 
-    private fun showRecords(): Unit = screen("Achados encontrados", "Registros, riscos e ações de acompanhamento") { root ->
-        root.addView(Ui.button(activity, "Adicionar achado").apply { setOnClickListener { showRecordDialog(null) } }, spaced())
+    private fun showRecords(): Unit = screen("Passo 2: Achados", "Registre cada situação encontrada") { root ->
+        val add = Ui.button(activity, "+ Registrar achado")
+        add.setOnClickListener { showRecordDialog(null) }
+        root.addView(add, spaced())
+        root.addView(Ui.label(activity, "Exemplo: extintor obstruído, cabo exposto, colaborador sem EPI, área desorganizada."), spaced())
         if (data.records.isEmpty()) {
-            root.addView(messageCard("Nenhum achado adicionado ainda."), spaced())
+            root.addView(messageCard("Nenhum achado registrado ainda."), spaced())
         } else {
             data.records.forEachIndexed { index, record -> root.addView(recordCard(index, record), spaced()) }
         }
+        root.addView(Ui.button(activity, "Continuar para relatório").apply { setOnClickListener { showReview() } }, spaced())
     }
 
-    private fun showActionPlan(): Unit = screen("Plano de ação", "Pendências abertas a partir dos achados") { root ->
+    private fun showActionPlan(): Unit = screen("Plano de ação", "Pendências criadas automaticamente") { root ->
         val open = data.records.filter { it.status != "Resolvido" && it.status != "Arquivado" }
         if (open.isEmpty()) {
             root.addView(messageCard("Nenhuma pendência aberta no momento."), spaced())
@@ -135,29 +138,30 @@ class InspectionModule(
                 card.addView(Ui.value(activity, record.description.ifBlank { "Achado sem descrição" }, Ui.TEXT), smallTop())
                 card.addView(Ui.label(activity, "Ação: ${record.recommendation.ifBlank { "Definir ação recomendada" }}"), smallTop())
                 card.addView(Ui.label(activity, "Responsável: ${record.responsible.ifBlank { "-" }} | Prazo: ${record.deadline.ifBlank { "-" }}"), smallTop())
-                card.addView(Ui.ghostButton(activity, "Editar achado").apply { setOnClickListener { showRecordDialog(data.records.indexOf(record).coerceAtLeast(index)) } }, buttonLp())
+                card.addView(Ui.ghostButton(activity, "Editar").apply { setOnClickListener { showRecordDialog(data.records.indexOf(record).coerceAtLeast(index)) } }, buttonLp())
                 root.addView(card, spaced())
             }
         }
     }
 
-    private fun showReview(): Unit = screen("Revisar relatório", "Confira antes de gerar o PDF") { root ->
+    private fun showReview(): Unit = screen("Passo 3: Relatório", "Confira antes de gerar o PDF") { root ->
         val summary = InspectionEngine.summary(data)
         val pending = InspectionEngine.pending(data)
         val card = Ui.heroCard(activity)
-        card.addView(Ui.section(activity, "Resumo"))
+        card.addView(Ui.section(activity, "Resumo da inspeção"))
+        card.addView(Ui.value(activity, "Local: ${data.place.ifBlank { "Não informado" }}"))
         card.addView(Ui.value(activity, "Ambiente: ${data.environmentType.ifBlank { "Outro" }}"))
         card.addView(Ui.value(activity, "Achados: ${summary.total} | Abertos: ${summary.open} | Alta/Crítica: ${summary.highCritical}"))
         if (pending.isEmpty()) {
             card.addView(Ui.chip(activity, "PRONTO PARA GERAR", Ui.GREEN), buttonLp())
         } else {
-            card.addView(Ui.chip(activity, "PENDENTE", Ui.RED), buttonLp())
+            card.addView(Ui.chip(activity, "FALTA PREENCHER", Ui.RED), buttonLp())
             pending.forEach { card.addView(Ui.label(activity, "• $it"), smallTop()) }
         }
         root.addView(card, spaced())
-        root.addView(actionCard("Identificação", "Revisar dados da visita") { showData() }, spaced())
-        root.addView(actionCard("Achados", "Revisar registros encontrados") { showRecords() }, spaced())
-        root.addView(actionCard("Plano de ação", "Revisar pendências e responsáveis") { showActionPlan() }, spaced())
+        root.addView(actionCard("Revisar local", "Voltar ao passo 1") { showData() }, spaced())
+        root.addView(actionCard("Revisar achados", "Voltar ao passo 2") { showRecords() }, spaced())
+        root.addView(actionCard("Ver plano de ação", "Responsáveis, prazos e pendências") { showActionPlan() }, spaced())
         root.addView(Ui.button(activity, "Gerar e compartilhar PDF").apply { setOnClickListener { generatePdf() } }, spaced())
     }
 
@@ -171,23 +175,22 @@ class InspectionModule(
         var status = original?.status ?: "Aberto"
 
         val panel = Ui.vbox(activity, dp(14))
+        val description = Ui.input(activity, "O que foi encontrado?", true)
         val location = Ui.input(activity, "Onde foi encontrado?")
-        val description = Ui.input(activity, "O que foi encontrado? Descreva livremente", true)
-        val risk = Ui.input(activity, "Qual o risco?", true)
-        val recommendation = Ui.input(activity, "Ação recomendada", true)
-        val responsible = Ui.input(activity, "Responsável / setor")
-        val deadline = Ui.input(activity, "Prazo")
-        val notes = Ui.input(activity, "Observação pessoal", true)
+        val recommendation = Ui.input(activity, "O que precisa ser feito?", true)
+        val responsible = Ui.input(activity, "Quem deve resolver? Opcional")
+        val deadline = Ui.input(activity, "Prazo. Opcional")
+        val risk = Ui.input(activity, "Risco observado. Opcional", true)
+        val notes = Ui.input(activity, "Observação pessoal. Opcional", true)
 
-        location.setText(original?.location.orEmpty())
         description.setText(original?.description.orEmpty())
-        risk.setText(original?.risk.orEmpty())
+        location.setText(original?.location.orEmpty())
         recommendation.setText(original?.recommendation.orEmpty())
         responsible.setText(original?.responsible.orEmpty())
         deadline.setText(original?.deadline.orEmpty())
+        risk.setText(original?.risk.orEmpty())
         notes.setText(original?.notes.orEmpty())
 
-        val environmentInfo = Ui.label(activity, "Ambiente: ${data.environmentType.ifBlank { "Outro" }}")
         val categoryBtn = Ui.ghostButton(activity, "Categoria: $category")
         categoryBtn.setOnClickListener { choose("Categoria", availableCategories, category) { category = it; categoryBtn.text = "Categoria: $it" } }
         val priorityBtn = Ui.ghostButton(activity, "Prioridade: $priority")
@@ -195,15 +198,15 @@ class InspectionModule(
         val statusBtn = Ui.ghostButton(activity, "Status: $status")
         statusBtn.setOnClickListener { choose("Status", InspectionEngine.statuses, status) { status = it; statusBtn.text = "Status: $it" } }
 
-        panel.addView(environmentInfo, buttonLp())
-        listOf(categoryBtn, priorityBtn, statusBtn, location, description, risk, recommendation, responsible, deadline, notes).forEach { panel.addView(it, buttonLp()) }
+        panel.addView(Ui.label(activity, "Ambiente: ${data.environmentType.ifBlank { "Outro" }}"), buttonLp())
+        listOf(categoryBtn, description, location, priorityBtn, recommendation, responsible, deadline, statusBtn, risk, notes).forEach { panel.addView(it, buttonLp()) }
 
         AlertDialog.Builder(activity)
-            .setTitle(if (editing) "Editar achado" else "Novo achado")
+            .setTitle(if (editing) "Editar achado" else "Registrar achado")
             .setView(panel)
             .setPositiveButton(if (editing) "Salvar" else "Adicionar") { _, _ ->
                 if (description.text.toString().isBlank()) {
-                    Toast.makeText(activity, "Descreva o achado encontrado", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(activity, "Descreva o que foi encontrado", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
                 val record = original ?: InspectionRecord()
@@ -231,10 +234,9 @@ class InspectionModule(
         top.addView(Ui.chip(activity, record.priority, InspectionEngine.priorityColor(record.priority)))
         top.addView(Ui.chip(activity, record.status, InspectionEngine.statusColor(record.status)), lpWrap(8, 0, 0, 0))
         card.addView(top)
-        card.addView(Ui.value(activity, record.category, Ui.TEXT), smallTop())
-        card.addView(Ui.label(activity, "Local: ${record.location.ifBlank { "-" }}"))
         card.addView(Ui.value(activity, record.description.ifBlank { "Sem descrição" }, Ui.TEXT), smallTop())
-        if (record.risk.isNotBlank()) card.addView(Ui.label(activity, "Risco: ${record.risk}"), smallTop())
+        card.addView(Ui.label(activity, "Categoria: ${record.category}"), smallTop())
+        card.addView(Ui.label(activity, "Local: ${record.location.ifBlank { "-" }}"), smallTop())
         if (record.recommendation.isNotBlank()) card.addView(Ui.label(activity, "Ação: ${record.recommendation}"), smallTop())
         if (record.responsible.isNotBlank() || record.deadline.isNotBlank()) card.addView(Ui.label(activity, "Responsável: ${record.responsible.ifBlank { "-" }} | Prazo: ${record.deadline.ifBlank { "-" }}"), smallTop())
         val actions = Ui.row(activity)
@@ -319,6 +321,22 @@ class InspectionModule(
         card.gravity = Gravity.CENTER
         card.addView(Ui.value(activity, value, color).apply { textSize = 24f; gravity = Gravity.CENTER })
         card.addView(Ui.label(activity, label).apply { gravity = Gravity.CENTER })
+        return card
+    }
+
+    private fun stepCard(number: String, title: String, subtitle: String, isDone: Boolean, action: () -> Unit): LinearLayout {
+        val card = Ui.card(activity)
+        val row = Ui.row(activity)
+        row.addView(Ui.iconBubble(activity, number, if (isDone) Ui.GREEN else Ui.AMBER))
+        val texts = Ui.vbox(activity)
+        texts.setPadding(dp(12), 0, 0, 0)
+        texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        texts.addView(Ui.value(activity, title, Ui.TEXT))
+        texts.addView(Ui.label(activity, subtitle))
+        row.addView(texts)
+        row.addView(Ui.chip(activity, if (isDone) "OK" else "Abrir", if (isDone) Ui.GREEN else Ui.AMBER))
+        card.addView(row)
+        card.setOnClickListener { action() }
         return card
     }
 
