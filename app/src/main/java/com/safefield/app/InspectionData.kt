@@ -30,6 +30,7 @@ data class InspectionData(
     var area: String = "",
     var place: String = "",
     var inspector: String = "",
+    var environmentType: String = "Outro",
     var objective: String = "",
     var dateMillis: Long = System.currentTimeMillis(),
     var records: MutableList<InspectionRecord> = mutableListOf(),
