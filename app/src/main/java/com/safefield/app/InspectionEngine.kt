@@ -3,21 +3,115 @@ package com.safefield.app
 import java.util.Calendar
 
 object InspectionEngine {
-    val categories: List<String> = listOf(
+    val environments: List<String> = listOf(
+        "Obra / canteiro",
+        "Indústria / usina",
+        "Manutenção",
+        "Armazém / logística",
+        "Área administrativa",
+        "Área externa",
+        "Outro"
+    )
+
+    val defaultCategories: List<String> = listOf(
         "Condição insegura",
         "Ato inseguro",
         "EPI",
-        "Máquinas/equipamentos",
+        "Equipamento",
         "Elétrica",
         "Incêndio",
         "Ordem e limpeza",
-        "Produtos químicos",
-        "Trabalho em altura",
         "Documentação",
         "Meio ambiente",
         "Melhoria",
         "Outro"
     )
+
+    val categories: List<String> = defaultCategories
+
+    fun categoriesFor(environment: String): List<String> {
+        val list = when (environment) {
+            "Obra / canteiro" -> listOf(
+                "Trabalho em altura",
+                "Andaimes e escadas",
+                "Escavação",
+                "Máquinas e equipamentos",
+                "Içamento de carga",
+                "Sinalização e isolamento",
+                "Ordem e limpeza",
+                "Instalações elétricas provisórias",
+                "EPI",
+                "Ferramentas",
+                "Armazenamento de materiais",
+                "Banheiros / vivência"
+            )
+            "Indústria / usina" -> listOf(
+                "Máquinas e proteções",
+                "Bloqueio e etiquetagem / LOTO",
+                "Energia elétrica",
+                "Produtos químicos",
+                "Espaço confinado",
+                "Trabalho a quente",
+                "Ruído / calor / agentes físicos",
+                "Rotas de fuga",
+                "Combate a incêndio",
+                "Ordem e limpeza",
+                "EPI",
+                "Sinalização"
+            )
+            "Manutenção" -> listOf(
+                "Isolamento da área",
+                "Ferramentas manuais",
+                "Ferramentas elétricas",
+                "Bloqueio de energia",
+                "Trabalho em altura",
+                "Trabalho a quente",
+                "Partes móveis",
+                "Organização da frente de serviço",
+                "EPI",
+                "Permissão de Trabalho",
+                "Teste após manutenção"
+            )
+            "Armazém / logística" -> listOf(
+                "Empilhadeiras",
+                "Paleteiras",
+                "Circulação de pedestres",
+                "Corredores e rotas",
+                "Armazenamento de materiais",
+                "Empilhamento",
+                "Docas",
+                "Sinalização",
+                "Ordem e limpeza",
+                "EPI",
+                "Iluminação"
+            )
+            "Área administrativa" -> listOf(
+                "Ergonomia",
+                "Instalações elétricas",
+                "Rotas de fuga",
+                "Extintores",
+                "Organização",
+                "Iluminação",
+                "Climatização",
+                "Piso / queda de mesmo nível",
+                "Sinalização"
+            )
+            "Área externa" -> listOf(
+                "Circulação de veículos",
+                "Piso irregular",
+                "Drenagem / acúmulo de água",
+                "Iluminação externa",
+                "Sinalização",
+                "Animais peçonhentos",
+                "Vegetação",
+                "Cercamento / acesso",
+                "Exposição ao sol / calor",
+                "Ordem e limpeza"
+            )
+            else -> defaultCategories
+        }
+        return if (list.contains("Outro")) list else list + "Outro"
+    }
 
     val priorities: List<String> = listOf("Baixa", "Média", "Alta", "Crítica")
     val statuses: List<String> = listOf("Aberto", "Cobrado", "Em andamento", "Resolvido", "Arquivado")
@@ -52,8 +146,8 @@ object InspectionEngine {
         if (data.company.isBlank()) list.add("Empresa pendente")
         if (data.place.isBlank()) list.add("Local pendente")
         if (data.inspector.isBlank()) list.add("Inspetor pendente")
-        if (data.records.isEmpty()) list.add("Nenhum registro de campo adicionado")
-        if (data.records.any { it.description.isBlank() }) list.add("Existe registro sem descrição")
+        if (data.records.isEmpty()) list.add("Nenhum achado de campo adicionado")
+        if (data.records.any { it.description.isBlank() }) list.add("Existe achado sem descrição")
         return list
     }
 
