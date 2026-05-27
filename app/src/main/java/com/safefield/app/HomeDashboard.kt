@@ -23,11 +23,10 @@ internal class HomeDashboard(
 
     fun renderInto(container: LinearLayout): Unit {
         val flow = PtFlowEngine.flow(data)
-        container.addView(topHeader(flow).margin(0, 8.dp()))
-        container.addView(daySummary(flow).margin(0, 8.dp()))
-        container.addView(moduleSection().margin(0, 8.dp()))
-        container.addView(fieldActions(flow).margin(0, 8.dp()))
-        container.addView(statusPanel(flow).margin(0, 8.dp()))
+        container.addView(topHeader().margin(0, 8.dp()))
+        container.addView(todayOverview(flow).margin(0, 8.dp()))
+        container.addView(primaryModules().margin(0, 8.dp()))
+        container.addView(workPanel(flow).margin(0, 8.dp()))
     }
 
     fun moduleGrid(compact: Boolean): GridLayout {
@@ -41,49 +40,43 @@ internal class HomeDashboard(
         return grid
     }
 
-    private fun topHeader(flow: PtFlowState): LinearLayout {
+    private fun topHeader(): LinearLayout {
         val card = Ui.heroCard(activity)
         val row = Ui.row(activity)
         row.gravity = Gravity.CENTER_VERTICAL
-
-        val logo = Ui.iconBubble(activity, "SF", Ui.AMBER)
-        row.addView(logo)
+        row.addView(Ui.iconBubble(activity, "SF", Ui.AMBER))
 
         val info = Ui.vbox(activity)
         info.setPadding(12.dp(), 0, 0, 0)
         info.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        info.addView(Ui.label(activity, "Olá, técnico de segurança"))
-        info.addView(Ui.title(activity, "SafeField", 26f))
-        info.addView(Ui.label(activity, "Campo, registros e segurança em um só lugar."))
+        info.addView(Ui.label(activity, "Aplicativo de campo"))
+        info.addView(Ui.title(activity, "SafeField", 28f))
+        info.addView(Ui.label(activity, "Escolha um módulo e registre tudo de forma simples."))
         row.addView(info)
 
         val menu = Ui.ghostButton(activity, "Menu")
-        menu.layoutParams = LinearLayout.LayoutParams(88.dp(), 48.dp())
+        menu.layoutParams = LinearLayout.LayoutParams(86.dp(), 48.dp())
         menu.setOnClickListener { showMenuDialog() }
         row.addView(menu)
         card.addView(row)
-
-        val statusRow = Ui.row(activity)
-        statusRow.addView(Ui.chip(activity, "PT ${flow.status.name}", statusColor(flow.status)))
-        statusRow.addView(Ui.chip(activity, "Offline pronto", Ui.GREEN), lpWrap(8, 0, 0, 0))
-        card.addView(statusRow.margin(0, 12.dp()))
         return card
     }
 
-    private fun daySummary(flow: PtFlowState): LinearLayout {
+    private fun todayOverview(flow: PtFlowState): LinearLayout {
         val card = Ui.card(activity)
         val top = Ui.row(activity)
-        top.addView(Ui.section(activity, "Resumo do dia"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        top.addView(Ui.label(activity, "Atualizado agora"))
+        top.addView(Ui.section(activity, "Visão geral"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        top.addView(Ui.chip(activity, "Offline", Ui.GREEN))
         card.addView(top)
 
         val grid = GridLayout(activity)
         grid.columnCount = 2
+        val pending = flow.critical.size + flow.important.size
         listOf(
-            Indicator("Pendências", (flow.critical.size + flow.important.size).toString(), if (flow.critical.isNotEmpty()) Ui.RED else Ui.AMBER),
-            Indicator("Inspeções", "0", Ui.AMBER_SOFT),
-            Indicator("PTs emitidas", data.history.size.toString(), Ui.GREEN),
-            Indicator("Fotos", data.photoUris.size.toString(), Ui.AMBER_SOFT)
+            Indicator("Pendências", pending.toString(), if (flow.critical.isNotEmpty()) Ui.RED else Ui.AMBER),
+            Indicator("Inspeções", "0", Ui.GREEN),
+            Indicator("PTs emitidas", data.history.size.toString(), Ui.AMBER_SOFT),
+            Indicator("Fotos PT", data.photoUris.size.toString(), Ui.AMBER_SOFT)
         ).forEach { item ->
             val tile = indicatorTile(item)
             tile.layoutParams = gridParams()
@@ -93,50 +86,25 @@ internal class HomeDashboard(
         return card
     }
 
-    private fun moduleSection(): LinearLayout {
+    private fun primaryModules(): LinearLayout {
         val card = Ui.card(activity)
-        val top = Ui.row(activity)
-        top.addView(Ui.section(activity, "Módulos"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        val all = Ui.ghostButton(activity, "Ver todos")
-        all.layoutParams = LinearLayout.LayoutParams(104.dp(), 44.dp())
-        all.setOnClickListener { showMenuDialog() }
-        top.addView(all)
-        card.addView(top)
+        card.addView(Ui.section(activity, "Módulos"))
+        card.addView(Ui.label(activity, "Acesse cada ferramenta separadamente. Nenhum módulo depende do outro para começar."), smallTop())
         card.addView(moduleGrid(compact = true).margin(0, 8.dp()))
         return card
     }
 
-    private fun fieldActions(flow: PtFlowState): LinearLayout {
+    private fun workPanel(flow: PtFlowState): LinearLayout {
         val card = Ui.card(activity)
-        card.addView(Ui.section(activity, "Ações rápidas"))
-        val grid = GridLayout(activity)
-        grid.columnCount = 2
-        listOf(
-            "Nova inspeção" to { openInspection() },
-            "Nova PT" to { openPt() },
-            "Pendências" to { openPending(flow) },
-            "Histórico" to { showHistoryDialog() }
-        ).forEach { shortcut ->
-            val button = Ui.ghostButton(activity, shortcut.first)
-            button.setOnClickListener { shortcut.second.invoke() }
-            button.layoutParams = gridParams()
-            grid.addView(button)
-        }
-        card.addView(grid.margin(0, 8.dp()))
-        return card
-    }
-
-    private fun statusPanel(flow: PtFlowState): LinearLayout {
-        val card = Ui.card(activity)
-        card.addView(Ui.section(activity, "Painel de controle"))
-        card.addView(summaryRow("Status atual da PT", flow.status.name, statusColor(flow.status)).margin(0, 8.dp()))
+        card.addView(Ui.section(activity, "Acompanhamento"))
+        card.addView(summaryRow("Status da PT atual", flow.status.name, statusColor(flow.status)).margin(0, 8.dp()))
         card.addView(summaryRow("Validade", flow.validityLabel, Ui.TEXT).margin(0, 4.dp()))
-        card.addView(summaryRow("PTs vencidas / encerradas", "${expiredCount()} / ${closedCount()}", Ui.RED).margin(0, 4.dp()))
+        card.addView(summaryRow("Vencidas / encerradas", "${expiredCount()} / ${closedCount()}", Ui.RED).margin(0, 4.dp()))
         flow.validityAlert?.let { card.addView(Ui.value(activity, it, Ui.AMBER_SOFT).margin(0, 8.dp())) }
         val last = data.history.firstOrNull()
         if (last != null) {
             card.addView(Ui.divider(activity).margin(0, 10.dp()))
-            card.addView(Ui.label(activity, "Último relatório de PT"))
+            card.addView(Ui.label(activity, "Último registro de PT"))
             card.addView(Ui.value(activity, "${last.ptNumber.ifBlank { "PT" }} • ${last.emittedAt}", Ui.TEXT).margin(0, 4.dp()))
             card.addView(Ui.label(activity, last.place.ifBlank { "Sem local" }))
         }
@@ -207,7 +175,8 @@ internal class HomeDashboard(
 
     private fun moduleTile(module: ModuleItem, compact: Boolean): LinearLayout {
         val card = Ui.card(activity)
-        card.setPadding(if (compact) 12.dp() else 16.dp(), if (compact) 12.dp() else 16.dp(), if (compact) 12.dp() else 16.dp(), if (compact) 12.dp() else 16.dp())
+        val pad = if (compact) 12.dp() else 16.dp()
+        card.setPadding(pad, pad, pad, pad)
         val row = Ui.row(activity)
         row.addView(bubble(module.initials, module.color))
         val texts = Ui.vbox(activity)
@@ -261,11 +230,11 @@ internal class HomeDashboard(
     }
 
     private fun modules(): List<ModuleItem> = listOf(
-        ModuleItem("Permissão de Trabalho", "Emissão e controle de PT", "PT", Ui.AMBER) { openPt() },
-        ModuleItem("Inspeção", "Achados e plano de ação", "IN", Ui.GREEN) { openInspection() },
-        ModuleItem("DDS", "Diálogo diário de segurança", "DS", Ui.BORDER_SOFT) { openPlaceholder("DDS") },
-        ModuleItem("EPI", "Controle de entrega", "EP", Ui.BORDER_SOFT) { openPlaceholder("EPI") },
-        ModuleItem("Ocorrência", "Registro de incidentes", "OC", Ui.RED) { openPlaceholder("Ocorrência") },
+        ModuleItem("Inspeção", "Achados e relatório", "IN", Ui.GREEN) { openInspection() },
+        ModuleItem("Permissão de Trabalho", "Emissão e controle", "PT", Ui.AMBER) { openPt() },
+        ModuleItem("DDS", "Diálogo de segurança", "DS", Ui.BORDER_SOFT) { openPlaceholder("DDS") },
+        ModuleItem("EPI", "Entrega e controle", "EP", Ui.BORDER_SOFT) { openPlaceholder("EPI") },
+        ModuleItem("Ocorrência", "Incidentes e desvios", "OC", Ui.RED) { openPlaceholder("Ocorrência") },
         ModuleItem("Colaboradores", "Equipe e documentos", "CL", Ui.BORDER_SOFT) { openPlaceholder("Colaboradores") },
         ModuleItem("Dashboard", "Indicadores gerais", "DB", Ui.AMBER_SOFT) { openPlaceholder("Dashboard") }
     )
@@ -305,6 +274,6 @@ internal class HomeDashboard(
         InspectionModule(activity) { openModules() }.show()
     }
 
-    private fun lpWrap(l: Int, t: Int, r: Int, b: Int): LinearLayout.LayoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(l.dp(), t.dp(), r.dp(), b.dp()) }
+    private fun smallTop(): LinearLayout.LayoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 6.dp(), 0, 0) }
     private fun Int.dp(): Int = Ui.dp(activity, this)
 }
