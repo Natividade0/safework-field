@@ -21,6 +21,7 @@ class InspectionRepository(context: Context) {
                 area = o.optString("area"),
                 place = o.optString("place"),
                 inspector = o.optString("inspector"),
+                environmentType = o.optString("environmentType", "Outro"),
                 objective = o.optString("objective"),
                 dateMillis = o.optLong("dateMillis", System.currentTimeMillis()),
                 records = o.optJSONArray("records").toRecords(),
@@ -61,6 +62,7 @@ class InspectionRepository(context: Context) {
         put("area", data.area)
         put("place", data.place)
         put("inspector", data.inspector)
+        put("environmentType", data.environmentType)
         put("objective", data.objective)
         put("dateMillis", data.dateMillis)
         put("inspectorSignatureB64", data.inspectorSignatureB64)
