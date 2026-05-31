@@ -2,7 +2,7 @@ package com.safefield.app
 
 data class InspectionRecord(
     val id: Long = System.currentTimeMillis(),
-    var category: String = "Condição insegura",
+    var category: String = "Outro",
     var location: String = "",
     var description: String = "",
     var risk: String = "",
