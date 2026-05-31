@@ -22,10 +22,19 @@ internal class HomeDashboard(
 
     fun renderInto(container: LinearLayout): Unit {
         val flow = PtFlowEngine.flow(data)
-        container.addView(header().margin(0, 8.dp()))
-        container.addView(mainActions().margin(0, 8.dp()))
-        container.addView(otherModules().margin(0, 8.dp()))
-        container.addView(simpleStatus(flow).margin(0, 8.dp()))
+        val row = Ui.row(activity)
+        row.gravity = Gravity.TOP
+        row.addView(sideMenu(), LinearLayout.LayoutParams(68.dp(), ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        val content = Ui.vbox(activity)
+        content.setPadding(10.dp(), 0, 0, 0)
+        content.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        content.addView(startCard().margin(0, 6.dp()))
+        content.addView(mainActions().margin(0, 8.dp()))
+        content.addView(otherModules().margin(0, 8.dp()))
+        content.addView(simpleStatus(flow).margin(0, 8.dp()))
+        row.addView(content)
+        container.addView(row)
     }
 
     fun moduleGrid(compact: Boolean): GridLayout {
@@ -39,30 +48,49 @@ internal class HomeDashboard(
         return grid
     }
 
-    private fun header(): LinearLayout {
+    private fun sideMenu(): LinearLayout {
+        val rail = Ui.vbox(activity, 8.dp())
+        rail.gravity = Gravity.CENTER_HORIZONTAL
+        rail.background = Ui.bg(Ui.PANEL, 22.dp(), Ui.BORDER, 1)
+        rail.addView(sideItem("IN", Ui.BLUE_DARK, "Inspeção") { openInspection() }, sideLp())
+        rail.addView(sideItem("PT", Ui.AMBER, "PT") { openPt() }, sideLp())
+        rail.addView(sideItem("DS", Ui.GREEN, "DDS") { openPlaceholder("DDS") }, sideLp())
+        rail.addView(sideItem("EP", Ui.AMBER_SOFT, "EPI") { openPlaceholder("EPI") }, sideLp())
+        rail.addView(sideItem("+", Ui.BORDER_SOFT, "Mais") { showMenuDialog() }, sideLp())
+        return rail
+    }
+
+    private fun sideItem(initials: String, color: Int, label: String, action: () -> Unit): LinearLayout {
+        val item = Ui.vbox(activity)
+        item.gravity = Gravity.CENTER
+        val icon = TextView(activity)
+        icon.text = initials
+        icon.textSize = 12f
+        icon.gravity = Gravity.CENTER
+        icon.setTextColor(Color.WHITE)
+        icon.background = Ui.bg(color, 14.dp())
+        item.addView(icon, LinearLayout.LayoutParams(42.dp(), 42.dp()))
+        val txt = TextView(activity)
+        txt.text = label
+        txt.textSize = 9.5f
+        txt.gravity = Gravity.CENTER
+        txt.setTextColor(Ui.MUTED)
+        item.addView(txt, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 4.dp(), 0, 0) })
+        item.setOnClickListener { action() }
+        return item
+    }
+
+    private fun startCard(): LinearLayout {
         val card = Ui.heroCard(activity)
-        val row = Ui.row(activity)
-        row.gravity = Gravity.CENTER_VERTICAL
-        row.addView(Ui.iconBubble(activity, "SF", Ui.BLUE_DARK))
-        val info = Ui.vbox(activity)
-        info.setPadding(12.dp(), 0, 0, 0)
-        info.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        info.addView(Ui.title(activity, "SafeField", 30f))
-        info.addView(Ui.label(activity, "Segurança do Trabalho em campo"), smallTop())
-        row.addView(info)
-        val menu = Ui.ghostButton(activity, "Menu")
-        menu.layoutParams = LinearLayout.LayoutParams(86.dp(), 48.dp())
-        menu.setOnClickListener { showMenuDialog() }
-        row.addView(menu)
-        card.addView(row)
+        card.addView(Ui.section(activity, "Início"))
+        card.addView(Ui.title(activity, "O que deseja fazer?", 22f), smallTop())
+        card.addView(Ui.label(activity, "Use o menu lateral ou escolha uma ação principal abaixo."), smallTop())
         return card
     }
 
     private fun mainActions(): LinearLayout {
         val card = Ui.card(activity)
-        card.addView(Ui.section(activity, "Começar"))
-        card.addView(Ui.title(activity, "O que deseja fazer?", 22f), smallTop())
-        card.addView(bigAction("Inspeção", "Registrar achados e gerar relatório", "IN", Ui.BLUE_DARK) { openInspection() }, buttonLp())
+        card.addView(bigAction("Inspeção", "Registrar achados e gerar relatório", "IN", Ui.BLUE_DARK) { openInspection() })
         card.addView(bigAction("Permissão de Trabalho", "Emitir, assinar e encerrar PT", "PT", Ui.AMBER) { openPt() }, buttonLp())
         return card
     }
@@ -87,7 +115,7 @@ internal class HomeDashboard(
         val pending = flow.critical.size + flow.important.size
         card.addView(statusRow("Pendências da PT", pending.toString(), if (pending > 0) Ui.AMBER else Ui.GREEN), smallTop())
         card.addView(statusRow("PT atual", flow.status.name, statusColor(flow.status)), smallTop())
-        card.addView(statusRow("Histórico PT", "${data.history.size} emitida(s)", Ui.BLUE), smallTop())
+        card.addView(statusRow("Histórico PT", "${data.history.size}", Ui.BLUE), smallTop())
         return card
     }
 
@@ -98,10 +126,9 @@ internal class HomeDashboard(
         val texts = Ui.vbox(activity)
         texts.setPadding(12.dp(), 0, 0, 0)
         texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        texts.addView(Ui.title(activity, title, 20f))
+        texts.addView(Ui.title(activity, title, 19f))
         texts.addView(Ui.label(activity, subtitle), smallTop())
         row.addView(texts)
-        row.addView(Ui.chip(activity, "Abrir", color))
         box.addView(row)
         box.setOnClickListener { action() }
         return box
@@ -109,7 +136,7 @@ internal class HomeDashboard(
 
     private fun smallModule(module: ModuleItem): LinearLayout {
         val box = Ui.card(activity)
-        box.setPadding(12.dp(), 12.dp(), 12.dp(), 12.dp())
+        box.setPadding(10.dp(), 10.dp(), 10.dp(), 10.dp())
         box.gravity = Gravity.CENTER
         box.addView(Ui.iconBubble(activity, module.initials, module.color))
         val title = Ui.value(activity, module.title, Ui.TEXT)
@@ -147,7 +174,7 @@ internal class HomeDashboard(
         val dialog = AlertDialog.Builder(activity).create()
         val panel = Ui.vbox(activity, 16.dp())
         panel.background = Ui.bg(Ui.PANEL, 24.dp(), Ui.BORDER, 1)
-        panel.addView(Ui.title(activity, "Módulos SafeField", 22f))
+        panel.addView(Ui.title(activity, "Todos os módulos", 22f))
         modules().forEach { module ->
             panel.addView(menuItem(module) {
                 dialog.dismiss()
@@ -209,6 +236,7 @@ internal class HomeDashboard(
         InspectionModule(activity) { openModules() }.show()
     }
 
+    private fun sideLp(): LinearLayout.LayoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 4.dp(), 0, 12.dp()) }
     private fun buttonLp(): LinearLayout.LayoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 12.dp(), 0, 0) }
     private fun smallTop(): LinearLayout.LayoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 6.dp(), 0, 0) }
     private fun Int.dp(): Int = Ui.dp(activity, this)
