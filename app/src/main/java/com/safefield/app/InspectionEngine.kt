@@ -13,6 +13,42 @@ object InspectionEngine {
         "Outro"
     )
 
+    val quickFindings: List<String> = listOf(
+        "Cabo exposto",
+        "Extintor obstruído",
+        "Falta de sinalização",
+        "Colaborador sem EPI",
+        "Máquina sem proteção",
+        "Risco de queda",
+        "Área desorganizada",
+        "Produto químico sem identificação",
+        "Outro"
+    )
+
+    fun quickCategoryFor(finding: String): String = when (finding) {
+        "Cabo exposto" -> "Energia elétrica"
+        "Extintor obstruído" -> "Combate a incêndio"
+        "Falta de sinalização" -> "Sinalização"
+        "Colaborador sem EPI" -> "EPI"
+        "Máquina sem proteção" -> "Máquinas e proteções"
+        "Risco de queda" -> "Trabalho em altura"
+        "Área desorganizada" -> "Ordem e limpeza"
+        "Produto químico sem identificação" -> "Produtos químicos"
+        else -> "Outro"
+    }
+
+    fun quickRecommendationFor(finding: String): String = when (finding) {
+        "Cabo exposto" -> "Isolar a área, eliminar exposição do cabo e acionar manutenção elétrica."
+        "Extintor obstruído" -> "Desobstruir o acesso ao extintor e orientar responsáveis pela área."
+        "Falta de sinalização" -> "Instalar sinalização adequada e reforçar isolamento da área."
+        "Colaborador sem EPI" -> "Orientar o colaborador e garantir uso do EPI obrigatório antes da continuidade da atividade."
+        "Máquina sem proteção" -> "Paralisar o uso do equipamento até regularização da proteção."
+        "Risco de queda" -> "Isolar local, avaliar proteção coletiva e exigir medidas contra queda."
+        "Área desorganizada" -> "Realizar limpeza, organizar materiais e manter rotas livres."
+        "Produto químico sem identificação" -> "Identificar o produto, conferir FISPQ e ajustar armazenamento."
+        else -> ""
+    }
+
     val defaultCategories: List<String> = listOf(
         "Condição insegura",
         "Ato inseguro",
@@ -122,23 +158,19 @@ object InspectionEngine {
         return "INSP-$year-${seed.toString().padStart(4, '0')}"
     }
 
-    fun priorityColor(priority: String): Int {
-        return when (priority) {
-            "Baixa" -> Ui.GREEN
-            "Média" -> Ui.AMBER
-            "Alta" -> Ui.RED
-            "Crítica" -> 0xFF9333EA.toInt()
-            else -> Ui.MUTED
-        }
+    fun priorityColor(priority: String): Int = when (priority) {
+        "Baixa" -> Ui.GREEN
+        "Média" -> Ui.AMBER
+        "Alta" -> Ui.RED
+        "Crítica" -> Ui.PURPLE
+        else -> Ui.MUTED
     }
 
-    fun statusColor(status: String): Int {
-        return when (status) {
-            "Resolvido", "Arquivado" -> Ui.GREEN
-            "Cobrado", "Em andamento" -> Ui.AMBER
-            "Aberto" -> Ui.RED
-            else -> Ui.MUTED
-        }
+    fun statusColor(status: String): Int = when (status) {
+        "Resolvido", "Arquivado" -> Ui.GREEN
+        "Cobrado", "Em andamento" -> Ui.AMBER
+        "Aberto" -> Ui.RED
+        else -> Ui.MUTED
     }
 
     fun pending(data: InspectionData): List<String> {
