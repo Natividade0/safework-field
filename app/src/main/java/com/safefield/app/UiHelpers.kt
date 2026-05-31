@@ -19,20 +19,21 @@ import java.util.Date
 import java.util.Locale
 
 object Ui {
-    const val SHELL = 0xFF05070B.toInt()
-    const val DARK = 0xFF0B1220.toInt()
-    const val PANEL = 0xFF0F172A.toInt()
-    const val CARD = 0xFF111827.toInt()
-    const val CARD_SOFT = 0xFF172033.toInt()
-    const val BORDER = 0xFF243047.toInt()
-    const val BORDER_SOFT = 0xFF334155.toInt()
+    const val SHELL = 0xFF07111F.toInt()
+    const val DARK = 0xFF0B1B2B.toInt()
+    const val PANEL = 0xFF102033.toInt()
+    const val CARD = 0xFF13263A.toInt()
+    const val CARD_SOFT = 0xFF18324B.toInt()
+    const val BORDER = 0xFF2E4A63.toInt()
+    const val BORDER_SOFT = 0xFF3A5873.toInt()
     const val AMBER = 0xFFF59E0B.toInt()
     const val AMBER_SOFT = 0xFFFCD34D.toInt()
     const val GREEN = 0xFF10B981.toInt()
     const val RED = 0xFFEF4444.toInt()
-    const val BLUE = 0xFF0EA5E9.toInt()
-    const val TEXT = 0xFFF8FAFC.toInt()
-    const val MUTED = 0xFF94A3B8.toInt()
+    const val BLUE = 0xFF38BDF8.toInt()
+    const val BLUE_DARK = 0xFF0284C7.toInt()
+    const val TEXT = 0xFFFFFFFF.toInt()
+    const val MUTED = 0xFFCBD5E1.toInt()
 
     val dateTime = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR"))
 
@@ -51,10 +52,10 @@ object Ui {
     fun ripple(color: Int, radius: Int, strokeColor: Int = Color.TRANSPARENT, strokeWidth: Int = 0): RippleDrawable {
         val normal = bg(color, radius, strokeColor, strokeWidth)
         val mask = bg(Color.WHITE, radius)
-        return RippleDrawable(ColorStateList.valueOf(0x220EA5E9), normal, mask)
+        return RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), normal, mask)
     }
 
-    fun gradient(radius: Int, start: Int = 0xFF0B1220.toInt(), end: Int = 0xFF0F172A.toInt(), stroke: Int = BORDER): GradientDrawable {
+    fun gradient(radius: Int, start: Int = 0xFF0B2A42.toInt(), end: Int = 0xFF102033.toInt(), stroke: Int = 0xFF25637F.toInt()): GradientDrawable {
         return GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(start, end)).apply {
             cornerRadius = radius.toFloat()
             setStroke(1, stroke)
@@ -81,8 +82,8 @@ object Ui {
             setTextColor(TEXT)
             textSize = size
             typeface = Typeface.DEFAULT_BOLD
-            includeFontPadding = false
-            setLineSpacing(0f, 1.05f)
+            includeFontPadding = true
+            setLineSpacing(0f, 1.08f)
         }
     }
 
@@ -90,9 +91,9 @@ object Ui {
         return TextView(context).apply {
             this.text = text
             setTextColor(MUTED)
-            textSize = 13f
+            textSize = 13.5f
             typeface = Typeface.DEFAULT
-            includeFontPadding = false
+            includeFontPadding = true
             setLineSpacing(0f, 1.12f)
         }
     }
@@ -101,9 +102,9 @@ object Ui {
         return TextView(context).apply {
             this.text = text
             setTextColor(color)
-            textSize = 15f
-            typeface = Typeface.DEFAULT
-            includeFontPadding = false
+            textSize = 15.5f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = true
             setLineSpacing(0f, 1.1f)
         }
     }
@@ -112,9 +113,9 @@ object Ui {
         return TextView(context).apply {
             this.text = text.uppercase(Locale("pt", "BR"))
             setTextColor(BLUE)
-            textSize = 11.5f
+            textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
-            includeFontPadding = false
+            includeFontPadding = true
             letterSpacing = 0.08f
         }
     }
@@ -122,27 +123,27 @@ object Ui {
     fun chip(context: Context, text: String, color: Int = BLUE): TextView {
         return TextView(context).apply {
             this.text = text
-            setTextColor(color)
+            setTextColor(Color.WHITE)
             textSize = 11.5f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            includeFontPadding = false
-            background = bg(0x141E293B, dp(context, 999), color, 1)
-            setPadding(dp(context, 10), dp(context, 6), dp(context, 10), dp(context, 6))
+            includeFontPadding = true
+            background = bg(color, dp(context, 999))
+            setPadding(dp(context, 10), dp(context, 5), dp(context, 10), dp(context, 5))
         }
     }
 
     fun iconBubble(context: Context, text: String, color: Int = BLUE): TextView {
         return TextView(context).apply {
             this.text = text
-            setTextColor(color)
+            setTextColor(Color.WHITE)
             textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            includeFontPadding = false
-            background = bg(0x111E293B, dp(context, 16), color, 1)
-            minWidth = dp(context, 42)
-            minHeight = dp(context, 42)
+            includeFontPadding = true
+            background = bg(color, dp(context, 16))
+            minWidth = dp(context, 44)
+            minHeight = dp(context, 44)
             setPadding(dp(context, 10), dp(context, 8), dp(context, 10), dp(context, 8))
         }
     }
@@ -150,11 +151,11 @@ object Ui {
     fun input(context: Context, hint: String, multi: Boolean = false): EditText {
         return EditText(context).apply {
             this.hint = hint
-            setHintTextColor(0xFF64748B.toInt())
+            setHintTextColor(0xFF94A3B8.toInt())
             setTextColor(TEXT)
             textSize = 15f
             typeface = Typeface.DEFAULT
-            background = bg(PANEL, dp(context, 14), BORDER, 1)
+            background = bg(PANEL, dp(context, 14), BORDER_SOFT, 1)
             setPadding(dp(context, 14), dp(context, 11), dp(context, 14), dp(context, 11))
             minHeight = dp(context, 52)
             if (multi) {
@@ -162,19 +163,19 @@ object Ui {
                 gravity = Gravity.TOP
             }
             setOnFocusChangeListener { view, focused ->
-                view.background = if (focused) bg(PANEL, dp(context, 14), BLUE, 2) else bg(PANEL, dp(context, 14), BORDER, 1)
+                view.background = if (focused) bg(PANEL, dp(context, 14), BLUE, 2) else bg(PANEL, dp(context, 14), BORDER_SOFT, 1)
             }
         }
     }
 
-    fun button(context: Context, text: String, color: Int = BLUE): Button {
+    fun button(context: Context, text: String, color: Int = BLUE_DARK): Button {
         return Button(context).apply {
             this.text = text
             setTextColor(Color.WHITE)
-            textSize = 14f
+            textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
-            background = ripple(color, dp(context, 14))
-            minHeight = dp(context, 52)
+            background = ripple(color, dp(context, 15))
+            minHeight = dp(context, 56)
             isAllCaps = false
             elevation = 0f
             stateListAnimator = null
@@ -184,9 +185,9 @@ object Ui {
     }
 
     fun ghostButton(context: Context, text: String): Button {
-        return button(context, text, PANEL).apply {
+        return button(context, text, CARD_SOFT).apply {
             setTextColor(TEXT)
-            background = ripple(0x0012161E, dp(context, 14), BORDER_SOFT, 1)
+            background = ripple(CARD_SOFT, dp(context, 15), BORDER_SOFT, 1)
             elevation = 0f
         }
     }
@@ -205,8 +206,8 @@ object Ui {
     }
 
     fun heroCard(context: Context): LinearLayout {
-        return vbox(context, dp(context, 16)).apply {
-            background = gradient(dp(context, 22), 0xFF0B1220.toInt(), 0xFF111827.toInt(), BORDER)
+        return vbox(context, dp(context, 18)).apply {
+            background = gradient(dp(context, 24))
             elevation = 0f
             translationZ = 0f
             pressFeedback(this)
@@ -239,10 +240,8 @@ object Ui {
 
     fun animateIn(view: View): View {
         view.alpha = 0f
-        view.scaleX = 0.99f
-        view.scaleY = 0.99f
-        view.translationY = 10f
-        view.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setDuration(200L).start()
+        view.translationY = 8f
+        view.animate().alpha(1f).translationY(0f).setDuration(180L).start()
         return view
     }
 
