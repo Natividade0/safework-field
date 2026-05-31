@@ -121,8 +121,10 @@ class InspectionModule(
             top.addView(chips, buttonLp())
             root.addView(top, spaced())
 
-            root.addView(Ui.button(activity, "+ Adicionar achado").apply { setOnClickListener { showFindingDialog(null) } }, spaced())
-            root.addView(Ui.ghostButton(activity, "Modelos rápidos de achado").apply { setOnClickListener { showQuickTemplatesDialog() } }, spaced())
+            val actionGrid = GridLayout(activity).apply { columnCount = 2 }
+            actionGrid.addView(primaryAction("+ Achado", "Registrar manualmente", Ui.BLUE) { showFindingDialog(null) }, gridParams())
+            actionGrid.addView(primaryAction("Modelos", "Usar achado pronto", Ui.GREEN) { showQuickTemplates() }, gridParams())
+            root.addView(actionGrid, spaced())
 
             if (data.records.isEmpty()) {
                 root.addView(emptyState(), spaced())
@@ -138,15 +140,17 @@ class InspectionModule(
         }
     }
 
-    private fun showQuickTemplatesDialog(): Unit {
-        AlertDialog.Builder(activity)
-            .setTitle("Modelos rápidos")
-            .setItems(InspectionEngine.quickFindings.toTypedArray()) { _, which ->
-                val preset = InspectionEngine.quickFindings[which]
-                showFindingDialog(null, preset)
-            }
-            .setNegativeButton("Cancelar", null)
-            .show()
+    private fun showQuickTemplates(): Unit = screen("Modelos rápidos", "Escolha um achado comum para preencher automaticamente", ::showInspection) { root ->
+        val grid = GridLayout(activity).apply { columnCount = 2 }
+        InspectionEngine.quickFindings.forEach { preset ->
+            val card = Ui.card(activity)
+            card.addView(Ui.iconBubble(activity, presetIcon(preset), presetColor(preset)), LinearLayout.LayoutParams(dp(44), dp(44)))
+            card.addView(Ui.value(activity, preset, Ui.TEXT), buttonLp())
+            card.addView(Ui.label(activity, InspectionEngine.quickRecommendationFor(preset).ifBlank { "Descrever manualmente" }), smallTop())
+            card.setOnClickListener { showFindingDialog(null, preset) }
+            grid.addView(card, gridParams())
+        }
+        root.addView(grid, spaced())
     }
 
     private fun showReport(): Unit = screen("Relatório", "Revise antes de compartilhar") { root ->
@@ -157,8 +161,6 @@ class InspectionModule(
         card.addView(Ui.section(activity, "RESUMO EXECUTIVO"))
         card.addView(Ui.value(activity, data.objective.ifBlank { "Inspeção de campo" }, Ui.TEXT), smallTop())
         card.addView(Ui.label(activity, "Local: ${data.place.ifBlank { "-" }}"), smallTop())
-        card.addView(Ui.label(activity, "Achados: ${summary.total} • Abertos: ${summary.open} • Resolvidos: ${summary.resolved}"), smallTop())
-        card.addView(Ui.label(activity, "Alta/Crítica: ${summary.highCritical} • Sem responsável: $noResponsible • Fotos: ${summary.photos}"), smallTop())
         if (pending.isEmpty()) card.addView(Ui.chip(activity, "Pronto para gerar", Ui.GREEN), buttonLp()) else {
             card.addView(Ui.chip(activity, "Falta preencher", Ui.RED), buttonLp())
             pending.forEach { card.addView(Ui.label(activity, "• $it"), smallTop()) }
@@ -167,14 +169,14 @@ class InspectionModule(
 
         val grid = GridLayout(activity).apply { columnCount = 2 }
         listOf(
-            "Abertos" to summary.open.toString(),
-            "Resolvidos" to summary.resolved.toString(),
-            "Alta/Crítica" to summary.highCritical.toString(),
-            "Sem responsável" to noResponsible.toString()
+            Triple("Achados", summary.total.toString(), Ui.BLUE),
+            Triple("Abertos", summary.open.toString(), Ui.AMBER),
+            Triple("Alta/Crítica", summary.highCritical.toString(), Ui.RED),
+            Triple("Sem responsável", noResponsible.toString(), if (noResponsible > 0) Ui.RED else Ui.GREEN)
         ).forEach { item ->
             val stat = Ui.card(activity)
-            stat.addView(Ui.title(activity, item.second, 24f))
-            stat.addView(Ui.label(activity, item.first), smallTop())
+            stat.addView(Ui.chip(activity, item.first, item.third))
+            stat.addView(Ui.title(activity, item.second, 26f), buttonLp())
             grid.addView(stat, gridParams())
         }
         root.addView(grid, spaced())
@@ -321,7 +323,7 @@ class InspectionModule(
         val card = Ui.card(activity)
         card.gravity = Gravity.CENTER_HORIZONTAL
         card.addView(Ui.title(activity, "Nenhum achado ainda", 20f))
-        card.addView(Ui.label(activity, "Toque em + Adicionar achado ou use modelos rápidos para começar."), smallTop())
+        card.addView(Ui.label(activity, "Toque em + Achado ou use modelos rápidos para começar."), smallTop())
         return card
     }
 
@@ -330,6 +332,34 @@ class InspectionModule(
         card.addView(Ui.section(activity, title))
         card.addView(Ui.value(activity, value, Ui.TEXT), smallTop())
         return card
+    }
+
+    private fun primaryAction(title: String, subtitle: String, color: Int, action: () -> Unit): LinearLayout {
+        val card = Ui.card(activity)
+        card.addView(Ui.iconBubble(activity, title.take(1), color), LinearLayout.LayoutParams(dp(44), dp(44)))
+        card.addView(Ui.value(activity, title, Ui.TEXT), buttonLp())
+        card.addView(Ui.label(activity, subtitle), smallTop())
+        card.setOnClickListener { action() }
+        return card
+    }
+
+    private fun presetIcon(preset: String): String = when (preset) {
+        "Cabo exposto" -> "E"
+        "Extintor obstruído" -> "F"
+        "Falta de sinalização" -> "S"
+        "Colaborador sem EPI" -> "EPI"
+        "Máquina sem proteção" -> "M"
+        "Risco de queda" -> "Q"
+        "Área desorganizada" -> "O"
+        "Produto químico sem identificação" -> "Q"
+        else -> "+"
+    }
+
+    private fun presetColor(preset: String): Int = when (preset) {
+        "Cabo exposto", "Máquina sem proteção", "Risco de queda" -> Ui.RED
+        "Extintor obstruído", "Falta de sinalização", "Produto químico sem identificação" -> Ui.AMBER
+        "Colaborador sem EPI", "Área desorganizada" -> Ui.BLUE
+        else -> Ui.GREEN
     }
 
     private fun generatePdf(): Unit {
