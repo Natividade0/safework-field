@@ -19,21 +19,22 @@ import java.util.Date
 import java.util.Locale
 
 object Ui {
-    const val SHELL = 0xFF07111F.toInt()
-    const val DARK = 0xFF0B1B2B.toInt()
-    const val PANEL = 0xFF102033.toInt()
-    const val CARD = 0xFF13263A.toInt()
-    const val CARD_SOFT = 0xFF18324B.toInt()
-    const val BORDER = 0xFF2E4A63.toInt()
-    const val BORDER_SOFT = 0xFF3A5873.toInt()
+    const val SHELL = 0xFFF6F8FC.toInt()
+    const val DARK = 0xFFFFFFFF.toInt()
+    const val PANEL = 0xFFFFFFFF.toInt()
+    const val CARD = 0xFFFFFFFF.toInt()
+    const val CARD_SOFT = 0xFFF1F5F9.toInt()
+    const val BORDER = 0xFFE2E8F0.toInt()
+    const val BORDER_SOFT = 0xFFCBD5E1.toInt()
     const val AMBER = 0xFFF59E0B.toInt()
-    const val AMBER_SOFT = 0xFFFCD34D.toInt()
-    const val GREEN = 0xFF10B981.toInt()
+    const val AMBER_SOFT = 0xFFFBBF24.toInt()
+    const val GREEN = 0xFF16A34A.toInt()
     const val RED = 0xFFEF4444.toInt()
-    const val BLUE = 0xFF38BDF8.toInt()
-    const val BLUE_DARK = 0xFF0284C7.toInt()
-    const val TEXT = 0xFFFFFFFF.toInt()
-    const val MUTED = 0xFFCBD5E1.toInt()
+    const val BLUE = 0xFF2563EB.toInt()
+    const val BLUE_DARK = 0xFF1D4ED8.toInt()
+    const val PURPLE = 0xFF7C3AED.toInt()
+    const val TEXT = 0xFF111827.toInt()
+    const val MUTED = 0xFF64748B.toInt()
 
     val dateTime = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR"))
 
@@ -52,10 +53,10 @@ object Ui {
     fun ripple(color: Int, radius: Int, strokeColor: Int = Color.TRANSPARENT, strokeWidth: Int = 0): RippleDrawable {
         val normal = bg(color, radius, strokeColor, strokeWidth)
         val mask = bg(Color.WHITE, radius)
-        return RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), normal, mask)
+        return RippleDrawable(ColorStateList.valueOf(0x1F2563EB), normal, mask)
     }
 
-    fun gradient(radius: Int, start: Int = 0xFF0B2A42.toInt(), end: Int = 0xFF102033.toInt(), stroke: Int = 0xFF25637F.toInt()): GradientDrawable {
+    fun gradient(radius: Int, start: Int = 0xFFFFFFFF.toInt(), end: Int = 0xFFF8FAFC.toInt(), stroke: Int = BORDER): GradientDrawable {
         return GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(start, end)).apply {
             cornerRadius = radius.toFloat()
             setStroke(1, stroke)
@@ -83,7 +84,7 @@ object Ui {
             textSize = size
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = true
-            setLineSpacing(0f, 1.08f)
+            setLineSpacing(0f, 1.05f)
         }
     }
 
@@ -113,22 +114,22 @@ object Ui {
         return TextView(context).apply {
             this.text = text.uppercase(Locale("pt", "BR"))
             setTextColor(BLUE)
-            textSize = 12f
+            textSize = 11.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = true
-            letterSpacing = 0.08f
+            letterSpacing = 0.07f
         }
     }
 
     fun chip(context: Context, text: String, color: Int = BLUE): TextView {
         return TextView(context).apply {
             this.text = text
-            setTextColor(Color.WHITE)
+            setTextColor(if (color == AMBER_SOFT || color == AMBER) 0xFF78350F.toInt() else Color.WHITE)
             textSize = 11.5f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             includeFontPadding = true
-            background = bg(color, dp(context, 999))
+            background = bg(softFill(color), dp(context, 999), color, 1)
             setPadding(dp(context, 10), dp(context, 5), dp(context, 10), dp(context, 5))
         }
     }
@@ -155,7 +156,7 @@ object Ui {
             setTextColor(TEXT)
             textSize = 15f
             typeface = Typeface.DEFAULT
-            background = bg(PANEL, dp(context, 14), BORDER_SOFT, 1)
+            background = bg(Color.WHITE, dp(context, 14), BORDER, 1)
             setPadding(dp(context, 14), dp(context, 11), dp(context, 14), dp(context, 11))
             minHeight = dp(context, 52)
             if (multi) {
@@ -163,21 +164,21 @@ object Ui {
                 gravity = Gravity.TOP
             }
             setOnFocusChangeListener { view, focused ->
-                view.background = if (focused) bg(PANEL, dp(context, 14), BLUE, 2) else bg(PANEL, dp(context, 14), BORDER_SOFT, 1)
+                view.background = if (focused) bg(Color.WHITE, dp(context, 14), BLUE, 2) else bg(Color.WHITE, dp(context, 14), BORDER, 1)
             }
         }
     }
 
-    fun button(context: Context, text: String, color: Int = BLUE_DARK): Button {
+    fun button(context: Context, text: String, color: Int = BLUE): Button {
         return Button(context).apply {
             this.text = text
             setTextColor(Color.WHITE)
             textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
             background = ripple(color, dp(context, 15))
-            minHeight = dp(context, 56)
+            minHeight = dp(context, 54)
             isAllCaps = false
-            elevation = 0f
+            elevation = dp(context, 2).toFloat()
             stateListAnimator = null
             setPadding(dp(context, 14), dp(context, 8), dp(context, 14), dp(context, 8))
             pressFeedback(this)
@@ -185,31 +186,29 @@ object Ui {
     }
 
     fun ghostButton(context: Context, text: String): Button {
-        return button(context, text, CARD_SOFT).apply {
-            setTextColor(TEXT)
-            background = ripple(CARD_SOFT, dp(context, 15), BORDER_SOFT, 1)
+        return button(context, text, Color.WHITE).apply {
+            setTextColor(BLUE)
+            background = ripple(Color.WHITE, dp(context, 15), BORDER, 1)
             elevation = 0f
         }
     }
 
-    fun dangerButton(context: Context, text: String): Button {
-        return button(context, text, RED)
-    }
+    fun dangerButton(context: Context, text: String): Button = button(context, text, RED)
 
     fun card(context: Context): LinearLayout {
         return vbox(context, dp(context, 14)).apply {
-            background = ripple(CARD, dp(context, 20), BORDER, 1)
-            elevation = 0f
-            translationZ = 0f
+            background = ripple(Color.WHITE, dp(context, 20), BORDER, 1)
+            elevation = dp(context, 3).toFloat()
+            translationZ = dp(context, 1).toFloat()
             pressFeedback(this)
         }
     }
 
     fun heroCard(context: Context): LinearLayout {
-        return vbox(context, dp(context, 18)).apply {
-            background = gradient(dp(context, 24))
-            elevation = 0f
-            translationZ = 0f
+        return vbox(context, dp(context, 16)).apply {
+            background = gradient(dp(context, 22))
+            elevation = dp(context, 4).toFloat()
+            translationZ = dp(context, 2).toFloat()
             pressFeedback(this)
         }
     }
@@ -224,13 +223,13 @@ object Ui {
     fun progress(context: Context, done: Int, total: Int): LinearLayout {
         val outer = LinearLayout(context)
         outer.orientation = LinearLayout.HORIZONTAL
-        outer.background = bg(PANEL, dp(context, 999), BORDER, 1)
+        outer.background = bg(CARD_SOFT, dp(context, 999), BORDER, 1)
         outer.setPadding(dp(context, 3), dp(context, 3), dp(context, 3), dp(context, 3))
         val safeTotal = if (total <= 0) 1 else total
         val safeDone = done.coerceIn(0, safeTotal)
         repeat(safeTotal) { index ->
             val bar = View(context)
-            bar.background = bg(if (index < safeDone) BLUE else 0xFF263244.toInt(), dp(context, 999))
+            bar.background = bg(if (index < safeDone) BLUE else 0xFFE2E8F0.toInt(), dp(context, 999))
             outer.addView(bar, LinearLayout.LayoutParams(0, dp(context, 8), 1f).apply {
                 setMargins(dp(context, 2), 0, dp(context, 2), 0)
             })
@@ -252,6 +251,16 @@ object Ui {
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> v.animate().scaleX(1f).scaleY(1f).setDuration(100L).start()
             }
             false
+        }
+    }
+
+    private fun softFill(color: Int): Int {
+        return when (color) {
+            GREEN -> 0xFFE8F8EF.toInt()
+            RED -> 0xFFFEE2E2.toInt()
+            AMBER, AMBER_SOFT -> 0xFFFEF3C7.toInt()
+            PURPLE -> 0xFFF3E8FF.toInt()
+            else -> color
         }
     }
 }
