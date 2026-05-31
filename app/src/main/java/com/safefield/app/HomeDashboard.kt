@@ -23,11 +23,9 @@ internal class HomeDashboard(
 
     fun renderInto(container: LinearLayout): Unit {
         val flow = PtFlowEngine.flow(data)
-        container.addView(tabBar().margin(0, 8.dp()))
-        container.addView(greeting().margin(0, 8.dp()))
-        container.addView(summaryCards(flow).margin(0, 8.dp()))
-        container.addView(quickActions().margin(0, 8.dp()))
-        container.addView(moduleStrip().margin(0, 8.dp()))
+        container.addView(welcomeCard(flow).margin(0, 8.dp()))
+        container.addView(compactSummary(flow).margin(0, 8.dp()))
+        container.addView(mainModules().margin(0, 8.dp()))
         container.addView(recentCard().margin(0, 8.dp()))
     }
 
@@ -42,136 +40,91 @@ internal class HomeDashboard(
         return grid
     }
 
-    private fun tabBar(): LinearLayout {
-        val card = Ui.card(activity)
-        card.setPadding(8.dp(), 8.dp(), 8.dp(), 8.dp())
-        val row = Ui.row(activity)
-        listOf(
-            "Início" to { openModules() },
-            "Riscos" to { openPt() },
-            "Inspeç." to { openInspection() },
-            "PT" to { openPt() },
-            "Mais" to { showMenuDialog() }
-        ).forEachIndexed { index, item ->
-            val btn = if (index == 0) Ui.button(activity, item.first, Ui.BLUE) else Ui.ghostButton(activity, item.first)
-            btn.textSize = 11f
-            btn.setSingleLine(true)
-            btn.setOnClickListener { item.second.invoke() }
-            row.addView(btn, LinearLayout.LayoutParams(0, 42.dp(), 1f).apply { if (index > 0) setMargins(5.dp(), 0, 0, 0) })
-        }
-        card.addView(row)
+    private fun welcomeCard(flow: PtFlowState): LinearLayout {
+        val pending = flow.critical.size + flow.important.size
+        val card = Ui.heroCard(activity)
+        val top = Ui.row(activity)
+        top.addView(Ui.iconBubble(activity, "SF", Ui.BLUE))
+        val texts = Ui.vbox(activity)
+        texts.setPadding(12.dp(), 0, 0, 0)
+        texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        texts.addView(Ui.label(activity, "Boa rotina de campo"))
+        texts.addView(Ui.title(activity, "Técnico de Segurança", 23f))
+        texts.addView(Ui.label(activity, "Registre inspeções, PTs e pendências em poucos toques."), smallTop())
+        top.addView(texts)
+        top.addView(Ui.ghostButton(activity, "Menu").apply { setOnClickListener { showMenuDialog() } }, LinearLayout.LayoutParams(86.dp(), 48.dp()))
+        card.addView(top)
+        val chips = Ui.row(activity)
+        chips.addView(Ui.chip(activity, "$pending pendência(s)", if (pending > 0) Ui.RED else Ui.GREEN))
+        chips.addView(Ui.chip(activity, "${data.history.size} PT(s)", Ui.BLUE), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(8.dp(), 0, 0, 0) })
+        card.addView(chips, buttonLp())
         return card
     }
 
-    private fun greeting(): LinearLayout {
-        val box = Ui.vbox(activity)
-        box.addView(Ui.title(activity, "Olá, Técnico de Segurança", 21f))
-        box.addView(Ui.label(activity, "Pronto para registrar sua rotina de campo."), smallTop())
-        return box
-    }
-
-    private fun summaryCards(flow: PtFlowState): LinearLayout {
+    private fun compactSummary(flow: PtFlowState): LinearLayout {
         val card = Ui.card(activity)
         val top = Ui.row(activity)
-        top.addView(Ui.section(activity, "Resumo geral"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        top.addView(Ui.label(activity, "30 dias"))
+        top.addView(Ui.section(activity, "Resumo rápido"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        top.addView(Ui.label(activity, "Hoje"))
         card.addView(top)
+        val pending = flow.critical.size + flow.important.size
         val grid = GridLayout(activity)
         grid.columnCount = 2
-        val pending = flow.critical.size + flow.important.size
         listOf(
-            StatItem("Ocorrências", "0", "!", Ui.AMBER),
+            StatItem("Pendências", pending.toString(), "!", if (pending > 0) Ui.RED else Ui.GREEN),
             StatItem("Inspeções", "0", "✓", Ui.BLUE),
             StatItem("PTs", data.history.size.toString(), "P", Ui.GREEN),
-            StatItem("Pendências", pending.toString(), "!", if (pending > 0) Ui.RED else Ui.GREEN)
+            StatItem("Ocorrências", "0", "!", Ui.AMBER)
         ).forEach { item ->
-            val stat = statTile(item)
-            stat.layoutParams = gridParams()
-            grid.addView(stat)
+            grid.addView(statRow(item), gridParams())
         }
-        card.addView(grid.margin(0, 8.dp()))
+        card.addView(grid, buttonLp())
         return card
     }
 
-    private fun quickActions(): LinearLayout {
+    private fun mainModules(): LinearLayout {
         val card = Ui.card(activity)
-        card.addView(Ui.section(activity, "Ações rápidas"))
-        val row = Ui.row(activity)
-        row.addView(actionButton("Inspeção", "Registrar achado", "IN") { openInspection() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(actionButton("Permissão de Trabalho", "Solicitar / Gerenciar", "PT") { openPt() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(8.dp(), 0, 0, 0) })
-        card.addView(row, buttonLp())
-        return card
-    }
-
-    private fun moduleStrip(): LinearLayout {
-        val card = Ui.card(activity)
-        card.addView(Ui.section(activity, "Módulos"))
+        card.addView(Ui.section(activity, "Módulos principais"))
         val grid = GridLayout(activity)
-        grid.columnCount = 5
-        modules().drop(2).take(5).forEach { module ->
-            val tile = miniModule(module)
-            tile.layoutParams = miniGridParams()
-            grid.addView(tile)
-        }
-        card.addView(grid.margin(0, 8.dp()))
+        grid.columnCount = 2
+        modules().forEach { module -> grid.addView(moduleBigCard(module), gridParams()) }
+        card.addView(grid, buttonLp())
         return card
     }
 
     private fun recentCard(): LinearLayout {
         val card = Ui.card(activity)
-        card.addView(Ui.section(activity, "Recentes"))
+        card.addView(Ui.section(activity, "Últimas atividades"))
         if (data.history.isEmpty()) {
-            card.addView(Ui.label(activity, "Nenhum registro recente. Comece por uma inspeção ou permissão de trabalho."), smallTop())
+            card.addView(activityRow("Nenhum registro recente", "Crie uma inspeção ou permissão de trabalho para começar.", "—", Ui.MUTED), buttonLp())
         } else {
             data.history.take(4).forEach { item ->
                 val state = historyState(item)
-                card.addView(recentRow(item.ptNumber.ifBlank { "Permissão de Trabalho" }, item.place.ifBlank { "Sem local" }, state, historyColor(state)), buttonLp())
+                card.addView(activityRow(item.ptNumber.ifBlank { "Permissão de Trabalho" }, item.place.ifBlank { "Sem local" }, state, historyColor(state)), buttonLp())
             }
         }
         return card
     }
 
-    private fun actionButton(title: String, subtitle: String, icon: String, action: () -> Unit): LinearLayout {
-        val box = Ui.vbox(activity, 12.dp())
-        box.background = Ui.ripple(Ui.BLUE, 16.dp())
+    private fun statRow(item: StatItem): LinearLayout {
         val row = Ui.row(activity)
-        row.addView(Ui.iconBubble(activity, icon, 0x33000000))
+        row.background = Ui.bg(0xFFF8FAFC.toInt(), 16.dp(), Ui.BORDER, 1)
+        row.setPadding(10.dp(), 10.dp(), 10.dp(), 10.dp())
+        row.addView(Ui.iconBubble(activity, item.icon, item.color), LinearLayout.LayoutParams(36.dp(), 36.dp()))
         val texts = Ui.vbox(activity)
         texts.setPadding(8.dp(), 0, 0, 0)
-        texts.addView(TextView(activity).apply { text = title; textSize = 14f; setTextColor(Color.WHITE); typeface = android.graphics.Typeface.DEFAULT_BOLD })
-        texts.addView(TextView(activity).apply { text = subtitle; textSize = 11f; setTextColor(Color.WHITE) })
-        row.addView(texts)
-        box.addView(row)
-        box.setOnClickListener { action() }
-        return box
-    }
-
-    private fun statTile(item: StatItem): LinearLayout {
-        val box = Ui.card(activity)
-        box.setPadding(10.dp(), 10.dp(), 10.dp(), 10.dp())
-        val row = Ui.row(activity)
-        row.addView(Ui.iconBubble(activity, item.icon, item.color), LinearLayout.LayoutParams(38.dp(), 38.dp()))
-        val texts = Ui.vbox(activity)
-        texts.setPadding(8.dp(), 0, 0, 0)
-        texts.addView(Ui.title(activity, item.value, 20f))
+        texts.addView(Ui.title(activity, item.value, 19f))
         texts.addView(Ui.label(activity, item.title))
         row.addView(texts)
-        box.addView(row)
-        return box
+        return row
     }
 
-    private fun miniModule(module: ModuleItem): LinearLayout {
-        val box = Ui.vbox(activity, 7.dp())
-        box.gravity = Gravity.CENTER
-        box.background = Ui.ripple(Color.WHITE, 16.dp(), Ui.BORDER, 1)
-        box.addView(Ui.iconBubble(activity, module.initials, module.color), LinearLayout.LayoutParams(42.dp(), 42.dp()))
-        val text = TextView(activity)
-        text.text = module.title
-        text.textSize = 9.5f
-        text.maxLines = 1
-        text.gravity = Gravity.CENTER
-        text.setTextColor(Ui.TEXT)
-        box.addView(text, smallTop())
+    private fun moduleBigCard(module: ModuleItem): LinearLayout {
+        val box = Ui.card(activity)
+        box.setPadding(14.dp(), 14.dp(), 14.dp(), 14.dp())
+        box.addView(Ui.iconBubble(activity, module.initials, module.color), LinearLayout.LayoutParams(48.dp(), 48.dp()))
+        box.addView(Ui.value(activity, module.title, Ui.TEXT), buttonLp())
+        box.addView(Ui.label(activity, module.subtitle), smallTop())
         box.setOnClickListener { module.action.invoke() }
         return box
     }
@@ -191,11 +144,11 @@ internal class HomeDashboard(
         return box
     }
 
-    private fun recentRow(title: String, subtitle: String, status: String, color: Int): LinearLayout {
+    private fun activityRow(title: String, subtitle: String, status: String, color: Int): LinearLayout {
         val row = Ui.row(activity)
         row.background = Ui.bg(0xFFF8FAFC.toInt(), 16.dp(), Ui.BORDER, 1)
         row.setPadding(10.dp(), 10.dp(), 10.dp(), 10.dp())
-        row.addView(Ui.iconBubble(activity, "PT", Ui.BLUE))
+        row.addView(Ui.iconBubble(activity, "•", color), LinearLayout.LayoutParams(38.dp(), 38.dp()))
         val texts = Ui.vbox(activity)
         texts.setPadding(10.dp(), 0, 0, 0)
         texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -210,7 +163,7 @@ internal class HomeDashboard(
         val dialog = AlertDialog.Builder(activity).create()
         val panel = Ui.vbox(activity, 16.dp())
         panel.background = Ui.bg(Color.WHITE, 24.dp(), Ui.BORDER, 1)
-        panel.addView(Ui.title(activity, "Todos os módulos", 22f))
+        panel.addView(Ui.title(activity, "Menu SafeField", 22f))
         modules().forEach { module -> panel.addView(moduleListTile(module).margin(0, 6.dp())) }
         dialog.setView(panel)
         dialog.show()
@@ -218,14 +171,14 @@ internal class HomeDashboard(
     }
 
     private fun modules(): List<ModuleItem> = listOf(
-        ModuleItem("Inspeção", "Achados e relatório", "IN", Ui.BLUE) { openInspection() },
-        ModuleItem("PT", "Permissão de Trabalho", "PT", Ui.BLUE) { openPt() },
-        ModuleItem("DDS", "Diálogo de segurança", "DDS", Ui.GREEN) { openPlaceholder("DDS") },
-        ModuleItem("EPI", "Entrega e controle", "EPI", Ui.AMBER) { openPlaceholder("EPI") },
-        ModuleItem("Ocorrência", "Incidentes e desvios", "OC", Ui.RED) { openPlaceholder("Ocorrência") },
-        ModuleItem("Colab.", "Equipe e documentos", "CL", Ui.PURPLE) { openPlaceholder("Colaboradores") },
-        ModuleItem("Relatórios", "Exportação de dados", "REL", Ui.BLUE) { openPlaceholder("Relatórios") },
-        ModuleItem("Dashboard", "Indicadores gerais", "DB", Ui.GREEN) { openPlaceholder("Dashboard") }
+        ModuleItem("Inspeções", "Achados e relatório", "IN", Ui.BLUE) { openInspection() },
+        ModuleItem("Permissão de Trabalho", "Emitir, assinar e encerrar", "PT", Ui.BLUE) { openPt() },
+        ModuleItem("EPI", "Entrega e controle", "EP", Ui.AMBER) { openPlaceholder("EPI") },
+        ModuleItem("Ocorrências", "Incidentes e desvios", "OC", Ui.RED) { openPlaceholder("Ocorrência") },
+        ModuleItem("Colaboradores", "Equipe e documentos", "CL", Ui.PURPLE) { openPlaceholder("Colaboradores") },
+        ModuleItem("Relatórios", "Exportação de dados", "RE", Ui.GREEN) { openPlaceholder("Relatórios") },
+        ModuleItem("DDS", "Diálogo de segurança", "DS", Ui.GREEN) { openPlaceholder("DDS") },
+        ModuleItem("Dashboard", "Indicadores gerais", "DB", Ui.BLUE) { openPlaceholder("Dashboard") }
     )
 
     private fun historyState(item: PtHistoryItem): String = when {
@@ -249,13 +202,6 @@ internal class HomeDashboard(
         height = ViewGroup.LayoutParams.WRAP_CONTENT
         columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
         setMargins(5.dp(), 5.dp(), 5.dp(), 5.dp())
-    }
-
-    private fun miniGridParams(): GridLayout.LayoutParams = GridLayout.LayoutParams().apply {
-        width = 0
-        height = ViewGroup.LayoutParams.WRAP_CONTENT
-        columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-        setMargins(4.dp(), 4.dp(), 4.dp(), 4.dp())
     }
 
     private fun buttonLp(): LinearLayout.LayoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 10.dp(), 0, 0) }
