@@ -413,7 +413,7 @@ class InspectionModule(
         width = 0
         height = ViewGroup.LayoutParams.WRAP_CONTENT
         columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-        setMargins(5.dp(), 5.dp(), 5.dp(), 5.dp())
+        setMargins(dp(5), dp(5), dp(5), dp(5))
     }
 
     private fun spaced(): LinearLayout.LayoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, 0, dp(12)) }
