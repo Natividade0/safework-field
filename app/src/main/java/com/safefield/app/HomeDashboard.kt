@@ -22,9 +22,8 @@ internal class HomeDashboard(
     private data class StatItem(val title: String, val value: String, val icon: String, val color: Int)
 
     fun renderInto(container: LinearLayout): Unit {
-        val flow = PtFlowEngine.flow(data)
-        container.addView(welcomeCard(flow).margin(0, 8.dp()))
-        container.addView(compactSummary(flow).margin(0, 8.dp()))
+        container.addView(welcomeCard().margin(0, 8.dp()))
+        container.addView(compactSummary().margin(0, 8.dp()))
         container.addView(mainModules().margin(0, 8.dp()))
         container.addView(recentCard().margin(0, 8.dp()))
     }
@@ -40,8 +39,18 @@ internal class HomeDashboard(
         return grid
     }
 
-    private fun welcomeCard(flow: PtFlowState): LinearLayout {
-        val pending = flow.critical.size + flow.important.size
+    private fun hasStartedPt(): Boolean {
+        return data.company.isNotBlank() || data.place.isNotBlank() || data.description.isNotBlank() || data.history.isNotEmpty()
+    }
+
+    private fun activePtPendingCount(): Int {
+        if (!hasStartedPt()) return 0
+        val flow = PtFlowEngine.flow(data)
+        return flow.critical.size + flow.important.size
+    }
+
+    private fun welcomeCard(): LinearLayout {
+        val pending = activePtPendingCount()
         val card = Ui.heroCard(activity)
         val top = Ui.row(activity)
         top.addView(Ui.iconBubble(activity, "SF", Ui.BLUE))
@@ -55,19 +64,19 @@ internal class HomeDashboard(
         top.addView(Ui.ghostButton(activity, "Menu").apply { setOnClickListener { showMenuDialog() } }, LinearLayout.LayoutParams(86.dp(), 48.dp()))
         card.addView(top)
         val chips = Ui.row(activity)
-        chips.addView(Ui.chip(activity, "$pending pendência(s)", if (pending > 0) Ui.RED else Ui.GREEN))
+        chips.addView(Ui.chip(activity, if (pending > 0) "$pending pendência(s)" else "Sem pendências", if (pending > 0) Ui.RED else Ui.GREEN))
         chips.addView(Ui.chip(activity, "${data.history.size} PT(s)", Ui.BLUE), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(8.dp(), 0, 0, 0) })
         card.addView(chips, buttonLp())
         return card
     }
 
-    private fun compactSummary(flow: PtFlowState): LinearLayout {
+    private fun compactSummary(): LinearLayout {
         val card = Ui.card(activity)
         val top = Ui.row(activity)
         top.addView(Ui.section(activity, "Resumo rápido"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         top.addView(Ui.label(activity, "Hoje"))
         card.addView(top)
-        val pending = flow.critical.size + flow.important.size
+        val pending = activePtPendingCount()
         val grid = GridLayout(activity)
         grid.columnCount = 2
         listOf(
