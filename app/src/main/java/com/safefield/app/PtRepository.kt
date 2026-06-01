@@ -17,8 +17,8 @@ class PtRepository(context: Context) {
             val o = JSONObject(json)
             PtData(
                 company = o.optString("company"), area = o.optString("area"), place = o.optString("place"), responsible = o.optString("responsible"),
-                startMillis = o.optLong("startMillis", System.currentTimeMillis()), validityHours = o.optInt("validityHours", 8),
-                endMillis = o.optLong("endMillis", System.currentTimeMillis() + 8L * 60L * 60L * 1000L), teamName = o.optString("teamName"),
+                startMillis = o.optLong("startMillis", 0L), validityHours = o.optInt("validityHours", 8),
+                endMillis = o.optLong("endMillis", 0L), issuedAt = o.optString("issuedAt"), teamName = o.optString("teamName"),
                 description = o.optString("description"), tools = o.optString("tools"), products = o.optString("products"),
                 emergencyPoint = o.optString("emergencyPoint"), emergencyPhone = o.optString("emergencyPhone"), emergencyProcedure = o.optString("emergencyProcedure"), observations = o.optString("observations"),
                 manualActivity = o.optString("manualActivity"),
@@ -69,7 +69,7 @@ class PtRepository(context: Context) {
 
     private fun toJson(data: PtData): JSONObject = JSONObject().apply {
         put("company", data.company); put("area", data.area); put("place", data.place); put("responsible", data.responsible)
-        put("startMillis", data.startMillis); put("validityHours", data.validityHours); put("endMillis", data.endMillis)
+        put("startMillis", data.startMillis); put("validityHours", data.validityHours); put("endMillis", data.endMillis); put("issuedAt", data.issuedAt)
         put("teamName", data.teamName); put("description", data.description); put("tools", data.tools); put("products", data.products)
         put("emergencyPoint", data.emergencyPoint); put("emergencyPhone", data.emergencyPhone); put("emergencyProcedure", data.emergencyProcedure); put("observations", data.observations)
         put("manualActivity", data.manualActivity)
