@@ -35,7 +35,8 @@ object PtFlowEngine {
         val isDraft = data.company.isBlank() && data.place.isBlank() &&
             data.responsible.isBlank() && data.description.isBlank() &&
             data.activities.isEmpty() && data.manualActivity.isBlank()
-        val isExpired = data.endMillis > 0L && now > data.endMillis
+        val isIssued = data.issuedAt.isNotBlank() || data.history.isNotEmpty()
+        val isExpired = isIssued && data.endMillis > 0L && now > data.endMillis
         val unsignedWorkers = data.workers.count { it.signatureB64.isBlank() }
 
         if (isExpired) critical.add(PendingItem("PT expirada — ajuste a validade", PendingPriority.CRITICA, PtTarget.VALIDADE))
@@ -81,8 +82,9 @@ object PtFlowEngine {
     }
 
     fun ptNumber(data: PtData): String {
-        val year = Calendar.getInstance().apply { timeInMillis = data.startMillis }.get(Calendar.YEAR)
-        val seed = kotlin.math.abs((data.startMillis / 1000L).toInt()) % 10000
+        val base = if (data.startMillis > 0L) data.startMillis else System.currentTimeMillis()
+        val year = Calendar.getInstance().apply { timeInMillis = base }.get(Calendar.YEAR)
+        val seed = kotlin.math.abs((base / 1000L).toInt()) % 10000
         return "PT-$year-${seed.toString().padStart(4, '0')}"
     }
 
@@ -96,7 +98,7 @@ object PtFlowEngine {
     }
 
     fun validityLabel(data: PtData, now: Long = System.currentTimeMillis()): String {
-        if (data.endMillis <= 0L) return "Validade não definida"
+        if (data.issuedAt.isBlank() || data.endMillis <= 0L) return "Validade será definida na emissão"
         val diff = data.endMillis - now
         if (diff <= 0L) return "Validade expirada"
         val hours = TimeUnit.MILLISECONDS.toHours(diff)
@@ -105,7 +107,7 @@ object PtFlowEngine {
     }
 
     fun validityAlert(data: PtData, now: Long = System.currentTimeMillis()): String? {
-        if (data.endMillis <= 0L) return "Defina o término da PT"
+        if (data.issuedAt.isBlank() || data.endMillis <= 0L) return null
         val diff = data.endMillis - now
         return when {
             diff <= 0L -> "PT expirada — renove a validade"
