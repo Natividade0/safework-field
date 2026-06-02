@@ -351,7 +351,7 @@ class InspectionModule(
             val selected = activeFilter == filter
             val button = Ui.ghostButton(activity, filter).apply {
                 setTextColor(if (selected) Ui.BLUE else Ui.TEXT)
-                background = Ui.bg(if (selected) Ui.CARD_SOFT else 0xFFFFFFFF.toInt(), 16.dp(), if (selected) Ui.BLUE else Ui.BORDER, 1)
+                background = Ui.bg(if (selected) Ui.CARD_SOFT else 0xFFFFFFFF.toInt(), dp(16), if (selected) Ui.BLUE else Ui.BORDER, 1)
                 setOnClickListener { activeFilter = filter; showInspection() }
             }
             grid.addView(button, gridParams())
