@@ -28,6 +28,7 @@ class InspectionModule(
     fun show(): Unit = showStart()
 
     private fun screen(title: String, subtitle: String, back: () -> Unit = ::showStart, build: (LinearLayout) -> Unit): Unit {
+        registerAndroidBack(back)
         val shell = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Ui.SHELL) }
         val header = Ui.row(activity).apply {
             setPadding(dp(16), dp(12), dp(16), dp(10))
@@ -47,6 +48,16 @@ class InspectionModule(
         shell.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         activity.setContentView(shell)
         Ui.animateIn(root)
+    }
+
+    private fun registerAndroidBack(back: () -> Unit): Unit {
+        if (activity !is MainActivity) return
+        runCatching {
+            val field = MainActivity::class.java.getDeclaredField("currentBack")
+            field.isAccessible = true
+            val handler: () -> Unit = { repo.save(data); back() }
+            field.set(activity, handler)
+        }
     }
 
     private fun showStart(): Unit {
@@ -153,7 +164,7 @@ class InspectionModule(
         root.addView(grid, spaced())
     }
 
-    private fun showReport(): Unit = screen("Relatório", "Revise antes de compartilhar") { root ->
+    private fun showReport(): Unit = screen("Relatório", "Revise antes de compartilhar", ::showInspection) { root ->
         val summary = InspectionEngine.summary(data)
         val pending = InspectionEngine.pending(data)
         val noResponsible = data.records.count { it.status != "Resolvido" && it.status != "Arquivado" && it.responsible.isBlank() }
