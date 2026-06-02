@@ -3,6 +3,7 @@ package com.safefield.app
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.net.Uri
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.EditText
@@ -25,8 +26,45 @@ class InspectionModule(
     private var data: InspectionData = repo.load()
     private val format = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR"))
     private var activeFilter: String = "Todos"
+    private val photoRequest: Int = 9201
+    private var pendingPhotoRecordIndex: Int? = null
 
     fun show(): Unit = showStart()
+
+    fun handleActivityResult(requestCode: Int, resultCode: Int, resultData: Intent?): Boolean {
+        if (requestCode != photoRequest) return false
+        if (resultCode == Activity.RESULT_OK) {
+            val index = pendingPhotoRecordIndex
+            if (index != null && index in data.records.indices) {
+                val clip = resultData?.clipData
+                if (clip != null) {
+                    for (i in 0 until clip.itemCount) addPhotoToRecord(index, clip.getItemAt(i).uri)
+                } else {
+                    resultData?.data?.let { addPhotoToRecord(index, it) }
+                }
+                repo.save(data)
+                Toast.makeText(activity, "Foto(s) anexada(s)", Toast.LENGTH_SHORT).show()
+                showFindingDetail(index)
+            }
+        }
+        pendingPhotoRecordIndex = null
+        return true
+    }
+
+    private fun addPhotoToRecord(index: Int, uri: Uri): Unit {
+        runCatching { activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        data.records[index].photos.add(uri.toString())
+    }
+
+    private fun pickPhotosForRecord(index: Int): Unit {
+        pendingPhotoRecordIndex = index
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type = "image/*"
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        activity.startActivityForResult(intent, photoRequest)
+    }
 
     private fun screen(title: String, subtitle: String, back: () -> Unit = ::showStart, build: (LinearLayout) -> Unit): Unit {
         registerAndroidBack(back)
@@ -276,6 +314,7 @@ class InspectionModule(
             card.addView(Ui.label(activity, "Categoria: ${record.category}"), smallTop())
             card.addView(Ui.label(activity, "Local: ${record.location.ifBlank { "-" }}"), smallTop())
             card.addView(Ui.label(activity, "Status: ${record.status}"), smallTop())
+            card.addView(Ui.label(activity, "Fotos anexadas: ${record.photos.size}"), smallTop())
             root.addView(card, spaced())
 
             root.addView(detailCard("Ação recomendada", record.recommendation.ifBlank { "Não informada" }), spaced())
@@ -284,12 +323,69 @@ class InspectionModule(
             if (record.risk.isNotBlank()) root.addView(detailCard("Risco observado", record.risk), spaced())
             if (record.notes.isNotBlank()) root.addView(detailCard("Observação", record.notes), spaced())
 
+            root.addView(photoManagerCard(index, record), spaced())
+
             val actions = Ui.row(activity)
             actions.addView(Ui.ghostButton(activity, "Editar").apply { setOnClickListener { showFindingDialog(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             if (record.status != "Resolvido") actions.addView(Ui.button(activity, "Resolver").apply { setOnClickListener { markResolved(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(8), 0, 0, 0) })
             root.addView(actions, spaced())
+            root.addView(Ui.button(activity, "Duplicar achado", Ui.BLUE).apply { setOnClickListener { duplicateRecord(index) } }, spaced())
+            if (record.status == "Resolvido") root.addView(Ui.ghostButton(activity, "Reabrir achado").apply { setOnClickListener { reopenRecord(index) } }, spaced())
             root.addView(Ui.dangerButton(activity, "Remover achado").apply { setOnClickListener { data.records.removeAt(index); repo.save(data); showInspection() } }, spaced())
         }
+    }
+
+    private fun photoManagerCard(index: Int, record: InspectionRecord): LinearLayout {
+        val card = Ui.card(activity)
+        card.addView(Ui.section(activity, "Evidências fotográficas"))
+        card.addView(Ui.value(activity, "${record.photos.size} foto(s) anexada(s)", Ui.TEXT), smallTop())
+        card.addView(Ui.button(activity, "Adicionar fotos").apply { setOnClickListener { pickPhotosForRecord(index) } }, buttonLp())
+        if (record.photos.isNotEmpty()) {
+            record.photos.forEachIndexed { photoIndex, _ ->
+                val row = Ui.row(activity)
+                row.addView(Ui.label(activity, "Foto ${photoIndex + 1}"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                row.addView(Ui.dangerButton(activity, "Remover").apply { setOnClickListener { removePhoto(index, photoIndex) } }, LinearLayout.LayoutParams(dp(110), ViewGroup.LayoutParams.WRAP_CONTENT))
+                card.addView(row, smallTop())
+            }
+        }
+        return card
+    }
+
+    private fun removePhoto(index: Int, photoIndex: Int): Unit {
+        if (index !in data.records.indices) return
+        val photos = data.records[index].photos
+        if (photoIndex !in photos.indices) return
+        photos.removeAt(photoIndex)
+        repo.save(data)
+        showFindingDetail(index)
+    }
+
+    private fun duplicateRecord(index: Int): Unit {
+        val source = data.records.getOrNull(index) ?: return
+        val copy = InspectionRecord(
+            category = source.category,
+            location = source.location,
+            description = "${source.description} (cópia)",
+            risk = source.risk,
+            recommendation = source.recommendation,
+            responsible = source.responsible,
+            deadline = source.deadline,
+            priority = source.priority,
+            status = "Aberto",
+            notes = source.notes,
+            photos = source.photos.toMutableList()
+        )
+        data.records.add(0, copy)
+        repo.save(data)
+        showInspection()
+    }
+
+    private fun reopenRecord(index: Int): Unit {
+        val record = data.records.getOrNull(index) ?: return
+        record.status = "Aberto"
+        record.notes = listOf(record.notes, "Reaberto em ${format.format(Date())}.").filter { it.isNotBlank() }.joinToString("\n")
+        repo.save(data)
+        showFindingDetail(index)
     }
 
     private fun findingCard(index: Int, record: InspectionRecord): LinearLayout {
@@ -307,6 +403,7 @@ class InspectionModule(
         card.addView(row)
         if (record.recommendation.isNotBlank()) card.addView(Ui.label(activity, "Ação: ${record.recommendation}"), buttonLp())
         if (record.deadline.isNotBlank()) card.addView(Ui.label(activity, "Prazo: ${record.deadline}"), smallTop())
+        card.addView(Ui.label(activity, "Fotos: ${record.photos.size}"), smallTop())
         val actions = Ui.row(activity)
         actions.addView(Ui.ghostButton(activity, "Ver detalhes").apply { setOnClickListener { showFindingDetail(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         if (record.status != "Resolvido") {
@@ -467,7 +564,7 @@ class InspectionModule(
     private fun showHelpDialog(): Unit {
         AlertDialog.Builder(activity)
             .setTitle("Como usar")
-            .setMessage("1. Toque em Nova inspeção.\n2. Informe local e área.\n3. Use modelos rápidos ou adicione achados manualmente.\n4. Use os filtros para priorizar pendências.\n5. Marque como resolvido quando a correção for concluída.\n6. Gere o PDF ao final da ronda.")
+            .setMessage("1. Toque em Nova inspeção.\n2. Informe local e área.\n3. Use modelos rápidos ou adicione achados manualmente.\n4. Use os filtros para priorizar pendências.\n5. Anexe fotos no detalhe do achado.\n6. Gere o PDF ao final da ronda.")
             .setPositiveButton("Entendi", null)
             .show()
     }
