@@ -30,6 +30,7 @@ internal class HomeDashboard(
 
     fun renderInto(container: LinearLayout): Unit {
         installEdgeSwipe(container)
+        replaceMainHeader(container)
         container.addView(welcomeCard().margin(0, 8.dp()))
         container.addView(compactSummary().margin(0, 8.dp()))
         container.addView(mainModules().margin(0, 8.dp()))
@@ -45,6 +46,28 @@ internal class HomeDashboard(
             grid.addView(tile)
         }
         return grid
+    }
+
+    private fun replaceMainHeader(container: LinearLayout): Unit {
+        if (container.childCount > 0) container.removeViewAt(0)
+        container.addView(homeHeader().margin(0, 4.dp()), 0)
+    }
+
+    private fun homeHeader(): LinearLayout {
+        val header = Ui.row(activity)
+        header.gravity = Gravity.CENTER_VERTICAL
+        val menu = Ui.ghostButton(activity, "☰").apply {
+            textSize = 28f
+            setOnClickListener { showMenuDialog() }
+        }
+        header.addView(menu, LinearLayout.LayoutParams(48.dp(), 48.dp()))
+        val titleBox = Ui.vbox(activity)
+        titleBox.setPadding(8.dp(), 0, 0, 0)
+        titleBox.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        titleBox.addView(Ui.title(activity, "SafeField", 30f))
+        titleBox.addView(Ui.label(activity, "Segurança do Trabalho em Campo"))
+        header.addView(titleBox)
+        return header
     }
 
     private fun installEdgeSwipe(view: View): Unit {
@@ -97,12 +120,6 @@ internal class HomeDashboard(
         texts.addView(Ui.title(activity, "Técnico de Segurança", 23f))
         texts.addView(Ui.label(activity, "Registre inspeções, PTs e pendências em poucos toques."), smallTop())
         top.addView(texts)
-
-        val moreButton = Ui.ghostButton(activity, "⋮").apply {
-            textSize = 25f
-            setOnClickListener { showMenuDialog() }
-        }
-        top.addView(moreButton, LinearLayout.LayoutParams(48.dp(), 48.dp()))
         card.addView(top)
 
         val chips = Ui.row(activity)
