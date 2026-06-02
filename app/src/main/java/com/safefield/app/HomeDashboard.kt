@@ -53,11 +53,11 @@ internal class HomeDashboard(
         val pending = activePtPendingCount()
         val card = Ui.heroCard(activity)
         val top = Ui.row(activity)
-        val menuButton = Ui.ghostButton(activity, "☰").apply {
-            textSize = 24f
+        val menuButton = Ui.ghostButton(activity, "Menu").apply {
+            textSize = 14f
             setOnClickListener { showMenuDialog() }
         }
-        top.addView(menuButton, LinearLayout.LayoutParams(56.dp(), 56.dp()))
+        top.addView(menuButton, LinearLayout.LayoutParams(78.dp(), 56.dp()))
         val texts = Ui.vbox(activity)
         texts.setPadding(12.dp(), 0, 0, 0)
         texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
