@@ -24,6 +24,7 @@ class InspectionModule(
     private val repo = InspectionRepository(activity)
     private var data: InspectionData = repo.load()
     private val format = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR"))
+    private var activeFilter: String = "Todos"
 
     fun show(): Unit = showStart()
 
@@ -141,13 +142,28 @@ class InspectionModule(
                 root.addView(emptyState(), spaced())
             } else {
                 root.addView(filterLine(), spaced())
-                data.records.forEachIndexed { index, record -> root.addView(findingCard(index, record), spaced()) }
+                val filtered = filteredRecords()
+                if (filtered.isEmpty()) root.addView(emptyFilteredState(), spaced())
+                filtered.forEach { pair -> root.addView(findingCard(pair.first, pair.second), spaced()) }
             }
 
             val actions = Ui.row(activity)
             actions.addView(Ui.ghostButton(activity, "Editar dados").apply { setOnClickListener { showCreateInspection() } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             actions.addView(Ui.button(activity, "Gerar PDF").apply { setOnClickListener { showReport() } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(8), 0, 0, 0) })
             root.addView(actions, spaced())
+        }
+    }
+
+    private fun filteredRecords(): List<Pair<Int, InspectionRecord>> {
+        return data.records.mapIndexed { index, record -> index to record }.filter { item ->
+            val record = item.second
+            when (activeFilter) {
+                "Abertos" -> record.status == "Aberto" || record.status == "Em andamento"
+                "Resolvidos" -> record.status == "Resolvido"
+                "Alta/Crítica" -> record.priority == "Alta" || record.priority == "Crítica"
+                "Sem responsável" -> record.status != "Resolvido" && record.status != "Arquivado" && record.responsible.isBlank()
+                else -> true
+            }
         }
     }
 
@@ -270,8 +286,9 @@ class InspectionModule(
 
             val actions = Ui.row(activity)
             actions.addView(Ui.ghostButton(activity, "Editar").apply { setOnClickListener { showFindingDialog(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            actions.addView(Ui.dangerButton(activity, "Remover").apply { setOnClickListener { data.records.removeAt(index); repo.save(data); showInspection() } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(8), 0, 0, 0) })
+            if (record.status != "Resolvido") actions.addView(Ui.button(activity, "Resolver").apply { setOnClickListener { markResolved(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(8), 0, 0, 0) })
             root.addView(actions, spaced())
+            root.addView(Ui.dangerButton(activity, "Remover achado").apply { setOnClickListener { data.records.removeAt(index); repo.save(data); showInspection() } }, spaced())
         }
     }
 
@@ -289,9 +306,24 @@ class InspectionModule(
         row.addView(Ui.chip(activity, record.status, InspectionEngine.statusColor(record.status)))
         card.addView(row)
         if (record.recommendation.isNotBlank()) card.addView(Ui.label(activity, "Ação: ${record.recommendation}"), buttonLp())
-        card.addView(Ui.ghostButton(activity, "Ver detalhes").apply { setOnClickListener { showFindingDetail(index) } }, buttonLp())
+        if (record.deadline.isNotBlank()) card.addView(Ui.label(activity, "Prazo: ${record.deadline}"), smallTop())
+        val actions = Ui.row(activity)
+        actions.addView(Ui.ghostButton(activity, "Ver detalhes").apply { setOnClickListener { showFindingDetail(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        if (record.status != "Resolvido") {
+            actions.addView(Ui.button(activity, "Resolver").apply { setOnClickListener { markResolved(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(8), 0, 0, 0) })
+        }
+        card.addView(actions, buttonLp())
         card.setOnClickListener { showFindingDetail(index) }
         return card
+    }
+
+    private fun markResolved(index: Int): Unit {
+        val record = data.records.getOrNull(index) ?: return
+        record.status = "Resolvido"
+        if (record.notes.isBlank()) record.notes = "Marcado como resolvido em ${format.format(Date())}."
+        repo.save(data)
+        Toast.makeText(activity, "Achado marcado como resolvido", Toast.LENGTH_SHORT).show()
+        showInspection()
     }
 
     private fun severityDot(priority: String): TextView {
@@ -312,12 +344,20 @@ class InspectionModule(
     }
 
     private fun filterLine(): LinearLayout {
-        val row = Ui.row(activity)
-        val summary = InspectionEngine.summary(data)
-        row.addView(Ui.chip(activity, "Todos ${summary.total}", Ui.BLUE))
-        row.addView(Ui.chip(activity, "Abertos ${summary.open}", if (summary.open > 0) Ui.AMBER else Ui.GREEN), lpWrap(8, 0, 0, 0))
-        row.addView(Ui.chip(activity, "Resolvidos ${summary.resolved}", Ui.GREEN), lpWrap(8, 0, 0, 0))
-        return row
+        val box = Ui.vbox(activity)
+        box.addView(Ui.section(activity, "Filtros"))
+        val grid = GridLayout(activity).apply { columnCount = 2 }
+        listOf("Todos", "Abertos", "Resolvidos", "Alta/Crítica", "Sem responsável").forEach { filter ->
+            val selected = activeFilter == filter
+            val button = Ui.ghostButton(activity, filter).apply {
+                setTextColor(if (selected) Ui.BLUE else Ui.TEXT)
+                background = Ui.bg(if (selected) Ui.CARD_SOFT else 0xFFFFFFFF.toInt(), 16.dp(), if (selected) Ui.BLUE else Ui.BORDER, 1)
+                setOnClickListener { activeFilter = filter; showInspection() }
+            }
+            grid.addView(button, gridParams())
+        }
+        box.addView(grid, smallTop())
+        return box
     }
 
     private fun currentInspectionCard(): LinearLayout {
@@ -335,6 +375,14 @@ class InspectionModule(
         card.gravity = Gravity.CENTER_HORIZONTAL
         card.addView(Ui.title(activity, "Nenhum achado ainda", 20f))
         card.addView(Ui.label(activity, "Toque em + Achado ou use modelos rápidos para começar."), smallTop())
+        return card
+    }
+
+    private fun emptyFilteredState(): LinearLayout {
+        val card = Ui.card(activity)
+        card.gravity = Gravity.CENTER_HORIZONTAL
+        card.addView(Ui.title(activity, "Nenhum achado neste filtro", 19f))
+        card.addView(Ui.label(activity, "Altere o filtro ou registre um novo achado."), smallTop())
         return card
     }
 
@@ -419,7 +467,7 @@ class InspectionModule(
     private fun showHelpDialog(): Unit {
         AlertDialog.Builder(activity)
             .setTitle("Como usar")
-            .setMessage("1. Toque em Nova inspeção.\n2. Informe local e área.\n3. Use modelos rápidos ou adicione achados manualmente.\n4. Toque no achado para ver detalhes.\n5. Gere o PDF ao final da ronda.")
+            .setMessage("1. Toque em Nova inspeção.\n2. Informe local e área.\n3. Use modelos rápidos ou adicione achados manualmente.\n4. Use os filtros para priorizar pendências.\n5. Marque como resolvido quando a correção for concluída.\n6. Gere o PDF ao final da ronda.")
             .setPositiveButton("Entendi", null)
             .show()
     }
