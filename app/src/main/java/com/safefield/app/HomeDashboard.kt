@@ -52,24 +52,38 @@ internal class HomeDashboard(
     private fun welcomeCard(): LinearLayout {
         val pending = activePtPendingCount()
         val card = Ui.heroCard(activity)
-        val top = Ui.row(activity)
-        val menuButton = Ui.ghostButton(activity, "Menu").apply {
-            textSize = 14f
+        card.setPadding(0, 0, 0, 0)
+
+        val main = Ui.row(activity)
+        main.gravity = Gravity.CENTER_VERTICAL
+
+        val menuRail = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            background = Ui.bg(Ui.BLUE, 24.dp(), Ui.BLUE, 0)
             setOnClickListener { showMenuDialog() }
         }
-        top.addView(menuButton, LinearLayout.LayoutParams(78.dp(), 56.dp()))
-        val texts = Ui.vbox(activity)
-        texts.setPadding(12.dp(), 0, 0, 0)
-        texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        texts.addView(Ui.label(activity, "Boa rotina de campo"))
-        texts.addView(Ui.title(activity, "Técnico de Segurança", 23f))
-        texts.addView(Ui.label(activity, "Registre inspeções, PTs e pendências em poucos toques."), smallTop())
-        top.addView(texts)
-        card.addView(top)
+        val menuText = TextView(activity).apply {
+            text = "Menu"
+            gravity = Gravity.CENTER
+            textSize = 14f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(Color.WHITE)
+        }
+        menuRail.addView(menuText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        main.addView(menuRail, LinearLayout.LayoutParams(76.dp(), ViewGroup.LayoutParams.MATCH_PARENT))
+
+        val content = Ui.vbox(activity, 18.dp())
+        content.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        content.addView(Ui.label(activity, "Boa rotina de campo"))
+        content.addView(Ui.title(activity, "Técnico de Segurança", 23f))
+        content.addView(Ui.label(activity, "Registre inspeções, PTs e pendências em poucos toques."), smallTop())
         val chips = Ui.row(activity)
         chips.addView(Ui.chip(activity, if (pending > 0) "$pending pendência(s)" else "Sem pendências", if (pending > 0) Ui.RED else Ui.GREEN))
         chips.addView(Ui.chip(activity, "${data.history.size} PT(s)", Ui.BLUE), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(8.dp(), 0, 0, 0) })
-        card.addView(chips, buttonLp())
+        content.addView(chips, buttonLp())
+        main.addView(content)
+        card.addView(main, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 168.dp()))
         return card
     }
 
