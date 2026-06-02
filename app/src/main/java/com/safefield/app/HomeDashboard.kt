@@ -2,8 +2,11 @@ package com.safefield.app
 
 import android.app.AlertDialog
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.widget.GridLayout
 import android.widget.LinearLayout
@@ -21,7 +24,12 @@ internal class HomeDashboard(
     private data class ModuleItem(val title: String, val subtitle: String, val initials: String, val color: Int, val action: () -> Unit)
     private data class StatItem(val title: String, val value: String, val icon: String, val color: Int)
 
+    private var swipeStartX: Float = 0f
+    private var swipeStartY: Float = 0f
+    private var trackingEdgeSwipe: Boolean = false
+
     fun renderInto(container: LinearLayout): Unit {
+        installEdgeSwipe(container)
         container.addView(welcomeCard().margin(0, 8.dp()))
         container.addView(compactSummary().margin(0, 8.dp()))
         container.addView(mainModules().margin(0, 8.dp()))
@@ -39,6 +47,32 @@ internal class HomeDashboard(
         return grid
     }
 
+    private fun installEdgeSwipe(view: View): Unit {
+        view.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    swipeStartX = event.x
+                    swipeStartY = event.y
+                    trackingEdgeSwipe = swipeStartX <= 32.dp()
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (trackingEdgeSwipe) {
+                        val dx = event.x - swipeStartX
+                        val dy = kotlin.math.abs(event.y - swipeStartY)
+                        if (dx >= 110.dp() && dy <= 120.dp()) {
+                            showMenuDialog()
+                            trackingEdgeSwipe = false
+                            return@setOnTouchListener true
+                        }
+                    }
+                    trackingEdgeSwipe = false
+                }
+                MotionEvent.ACTION_CANCEL -> trackingEdgeSwipe = false
+            }
+            false
+        }
+    }
+
     private fun hasStartedPt(): Boolean {
         return data.company.isNotBlank() || data.place.isNotBlank() || data.description.isNotBlank() || data.history.isNotEmpty()
     }
@@ -52,38 +86,29 @@ internal class HomeDashboard(
     private fun welcomeCard(): LinearLayout {
         val pending = activePtPendingCount()
         val card = Ui.heroCard(activity)
-        card.setPadding(0, 0, 0, 0)
+        val top = Ui.row(activity)
+        top.gravity = Gravity.CENTER_VERTICAL
+        top.addView(Ui.iconBubble(activity, "SF", Ui.BLUE), LinearLayout.LayoutParams(56.dp(), 56.dp()))
 
-        val main = Ui.row(activity)
-        main.gravity = Gravity.CENTER_VERTICAL
+        val texts = Ui.vbox(activity)
+        texts.setPadding(12.dp(), 0, 0, 0)
+        texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        texts.addView(Ui.label(activity, "Boa rotina de campo"))
+        texts.addView(Ui.title(activity, "Técnico de Segurança", 23f))
+        texts.addView(Ui.label(activity, "Registre inspeções, PTs e pendências em poucos toques."), smallTop())
+        top.addView(texts)
 
-        val menuRail = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            background = Ui.bg(Ui.BLUE, 24.dp(), Ui.BLUE, 0)
+        val moreButton = Ui.ghostButton(activity, "⋮").apply {
+            textSize = 25f
             setOnClickListener { showMenuDialog() }
         }
-        val menuText = TextView(activity).apply {
-            text = "Menu"
-            gravity = Gravity.CENTER
-            textSize = 14f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(Color.WHITE)
-        }
-        menuRail.addView(menuText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        main.addView(menuRail, LinearLayout.LayoutParams(76.dp(), ViewGroup.LayoutParams.MATCH_PARENT))
+        top.addView(moreButton, LinearLayout.LayoutParams(48.dp(), 48.dp()))
+        card.addView(top)
 
-        val content = Ui.vbox(activity, 18.dp())
-        content.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        content.addView(Ui.label(activity, "Boa rotina de campo"))
-        content.addView(Ui.title(activity, "Técnico de Segurança", 23f))
-        content.addView(Ui.label(activity, "Registre inspeções, PTs e pendências em poucos toques."), smallTop())
         val chips = Ui.row(activity)
         chips.addView(Ui.chip(activity, if (pending > 0) "$pending pendência(s)" else "Sem pendências", if (pending > 0) Ui.RED else Ui.GREEN))
         chips.addView(Ui.chip(activity, "${data.history.size} PT(s)", Ui.BLUE), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(8.dp(), 0, 0, 0) })
-        content.addView(chips, buttonLp())
-        main.addView(content)
-        card.addView(main, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 168.dp()))
+        card.addView(chips, buttonLp())
         return card
     }
 
@@ -188,12 +213,21 @@ internal class HomeDashboard(
     private fun showMenuDialog(): Unit {
         val dialog = AlertDialog.Builder(activity).create()
         val panel = Ui.vbox(activity, 16.dp())
-        panel.background = Ui.bg(Color.WHITE, 24.dp(), Ui.BORDER, 1)
-        panel.addView(Ui.title(activity, "Menu SafeField", 22f))
+        panel.background = Ui.bg(Color.WHITE, 0, Ui.BORDER, 1)
+        panel.minimumWidth = 292.dp()
+        panel.addView(TextView(activity).apply {
+            text = "SafeField"
+            textSize = 24f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Ui.TEXT)
+        })
+        panel.addView(Ui.label(activity, "Menu lateral"), smallTop())
         modules().forEach { module -> panel.addView(moduleListTile(module).margin(0, 6.dp())) }
         dialog.setView(panel)
         dialog.show()
+        dialog.window?.setGravity(Gravity.START or Gravity.TOP)
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(320.dp(), ViewGroup.LayoutParams.MATCH_PARENT)
     }
 
     private fun modules(): List<ModuleItem> = listOf(
