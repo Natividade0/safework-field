@@ -53,7 +53,11 @@ internal class HomeDashboard(
         val pending = activePtPendingCount()
         val card = Ui.heroCard(activity)
         val top = Ui.row(activity)
-        top.addView(Ui.iconBubble(activity, "SF", Ui.BLUE))
+        val menuButton = Ui.ghostButton(activity, "☰").apply {
+            textSize = 24f
+            setOnClickListener { showMenuDialog() }
+        }
+        top.addView(menuButton, LinearLayout.LayoutParams(56.dp(), 56.dp()))
         val texts = Ui.vbox(activity)
         texts.setPadding(12.dp(), 0, 0, 0)
         texts.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -61,7 +65,6 @@ internal class HomeDashboard(
         texts.addView(Ui.title(activity, "Técnico de Segurança", 23f))
         texts.addView(Ui.label(activity, "Registre inspeções, PTs e pendências em poucos toques."), smallTop())
         top.addView(texts)
-        top.addView(Ui.ghostButton(activity, "Menu").apply { setOnClickListener { showMenuDialog() } }, LinearLayout.LayoutParams(86.dp(), 48.dp()))
         card.addView(top)
         val chips = Ui.row(activity)
         chips.addView(Ui.chip(activity, if (pending > 0) "$pending pendência(s)" else "Sem pendências", if (pending > 0) Ui.RED else Ui.GREEN))
