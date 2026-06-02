@@ -48,6 +48,7 @@ class PtRepository(context: Context) {
     }
 
     fun save(data: PtData) {
+        data.history = data.history.filter { it.status == "ENCERRADA" }.distinctBy { it.ptNumber }.toMutableList()
         prefs.edit().putString("draft_json", toJson(data).toString()).putString("signature_b64", data.signatureB64).apply()
     }
 
@@ -83,7 +84,7 @@ class PtRepository(context: Context) {
         put("closurePhotoUris", JSONArray(data.closurePhotoUris)); put("closureSignatureB64", data.closureSignatureB64)
         put("workers", JSONArray().also { arr -> data.workers.forEach { arr.put(JSONObject().put("name", it.name).put("role", it.role).put("signatureB64", it.signatureB64).put("signedAt", it.signedAt)) } })
         put("history", JSONArray().also { arr ->
-            data.history.forEach {
+            data.history.filter { it.status == "ENCERRADA" }.distinctBy { it.ptNumber }.forEach {
                 arr.put(
                     JSONObject()
                         .put("ptNumber", it.ptNumber)
@@ -122,27 +123,26 @@ class PtRepository(context: Context) {
         val list = mutableListOf<PtHistoryItem>()
         if (this != null) for (i in 0 until length()) {
             val o = optJSONObject(i) ?: continue
-            list.add(
-                PtHistoryItem(
-                    ptNumber = o.optString("ptNumber"),
-                    emittedAt = o.optString("emittedAt"),
-                    place = o.optString("place"),
-                    company = o.optString("company"),
-                    responsible = o.optString("responsible"),
-                    fileName = o.optString("fileName"),
-                    status = o.optString("status", "LIBERADA"),
-                    startMillis = o.optLong("startMillis", 0L),
-                    endMillis = o.optLong("endMillis", 0L),
-                    closedAt = o.optString("closedAt"),
-                    closeNote = o.optString("closeNote"),
-                    closeResponsible = o.optString("closeResponsible"),
-                    closeCondition = o.optString("closeCondition"),
-                    closeIncident = o.optBoolean("closeIncident", false),
-                    closeIncidentDescription = o.optString("closeIncidentDescription"),
-                    closePhotoCount = o.optInt("closePhotoCount", 0)
-                )
+            val item = PtHistoryItem(
+                ptNumber = o.optString("ptNumber"),
+                emittedAt = o.optString("emittedAt"),
+                place = o.optString("place"),
+                company = o.optString("company"),
+                responsible = o.optString("responsible"),
+                fileName = o.optString("fileName"),
+                status = o.optString("status", "LIBERADA"),
+                startMillis = o.optLong("startMillis", 0L),
+                endMillis = o.optLong("endMillis", 0L),
+                closedAt = o.optString("closedAt"),
+                closeNote = o.optString("closeNote"),
+                closeResponsible = o.optString("closeResponsible"),
+                closeCondition = o.optString("closeCondition"),
+                closeIncident = o.optBoolean("closeIncident", false),
+                closeIncidentDescription = o.optString("closeIncidentDescription"),
+                closePhotoCount = o.optInt("closePhotoCount", 0)
             )
+            if (item.status == "ENCERRADA") list.add(item)
         }
-        return list
+        return list.distinctBy { it.ptNumber }.toMutableList()
     }
 }
