@@ -297,9 +297,15 @@ class InspectionModule(
                 record.responsible = responsible.text.toString()
                 record.deadline = deadline.text.toString()
                 record.status = status
-                if (editIndex == null) data.records.add(0, record) else data.records[editIndex] = record
+                val targetIndex = if (editIndex == null) {
+                    data.records.add(0, record)
+                    0
+                } else {
+                    data.records[editIndex] = record
+                    editIndex
+                }
                 repo.save(data)
-                showInspection()
+                showFindingDetail(targetIndex)
             }
             .setNegativeButton("Cancelar", null)
             .show()
@@ -339,7 +345,7 @@ class InspectionModule(
         val card = Ui.card(activity)
         card.addView(Ui.section(activity, "Evidências fotográficas"))
         card.addView(Ui.value(activity, "${record.photos.size} foto(s) anexada(s)", Ui.TEXT), smallTop())
-        card.addView(Ui.button(activity, "Adicionar fotos").apply { setOnClickListener { pickPhotosForRecord(index) } }, buttonLp())
+        card.addView(Ui.button(activity, "Adicionar fotos ao achado", Ui.AMBER).apply { setOnClickListener { pickPhotosForRecord(index) } }, buttonLp())
         if (record.photos.isNotEmpty()) {
             record.photos.forEachIndexed { photoIndex, _ ->
                 val row = Ui.row(activity)
@@ -404,6 +410,7 @@ class InspectionModule(
         if (record.recommendation.isNotBlank()) card.addView(Ui.label(activity, "Ação: ${record.recommendation}"), buttonLp())
         if (record.deadline.isNotBlank()) card.addView(Ui.label(activity, "Prazo: ${record.deadline}"), smallTop())
         card.addView(Ui.label(activity, "Fotos: ${record.photos.size}"), smallTop())
+        card.addView(Ui.button(activity, if (record.photos.isEmpty()) "Adicionar fotos" else "Fotos (${record.photos.size})", Ui.AMBER).apply { setOnClickListener { pickPhotosForRecord(index) } }, buttonLp())
         val actions = Ui.row(activity)
         actions.addView(Ui.ghostButton(activity, "Ver detalhes").apply { setOnClickListener { showFindingDetail(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         if (record.status != "Resolvido") {
@@ -564,7 +571,7 @@ class InspectionModule(
     private fun showHelpDialog(): Unit {
         AlertDialog.Builder(activity)
             .setTitle("Como usar")
-            .setMessage("1. Toque em Nova inspeção.\n2. Informe local e área.\n3. Use modelos rápidos ou adicione achados manualmente.\n4. Use os filtros para priorizar pendências.\n5. Anexe fotos no detalhe do achado.\n6. Gere o PDF ao final da ronda.")
+            .setMessage("1. Toque em Nova inspeção.\n2. Informe local e área.\n3. Use modelos rápidos ou adicione achados manualmente.\n4. Use os filtros para priorizar pendências.\n5. Anexe fotos direto no card ou no detalhe do achado.\n6. Gere o PDF ao final da ronda.")
             .setPositiveButton("Entendi", null)
             .show()
     }
