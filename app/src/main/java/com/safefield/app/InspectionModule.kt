@@ -2,8 +2,10 @@ package com.safefield.app
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import android.provider.MediaStore
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.EditText
@@ -64,6 +66,40 @@ class InspectionModule(
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
         activity.startActivityForResult(intent, photoRequest)
+    }
+
+    private fun takePhotoForRecord(index: Int): Unit {
+        if (index !in data.records.indices) return
+        val created = runCatching {
+            val dir = File(activity.cacheDir, "inspection_photos").apply { mkdirs() }
+            val file = File.createTempFile("achado_${data.records[index].id}_", ".jpg", dir)
+            FileProvider.getUriForFile(activity, "${activity.packageName}.provider", file)
+        }
+        val uri = created.getOrNull()
+        if (uri == null) {
+            Toast.makeText(activity, "Não foi possível preparar a foto", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        data.records[index].photos.add(uri.toString())
+        repo.save(data)
+
+        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, uri)
+        intent.clipData = ClipData.newUri(activity.contentResolver, "Foto SafeField", uri)
+        intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val started = runCatching {
+            activity.startActivity(intent)
+            true
+        }.getOrDefault(false)
+
+        if (started) {
+            Toast.makeText(activity, "Câmera aberta. A foto já ficou vinculada ao achado.", Toast.LENGTH_LONG).show()
+        } else {
+            data.records[index].photos.remove(uri.toString())
+            repo.save(data)
+            Toast.makeText(activity, "Nenhum app de câmera encontrado", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun screen(title: String, subtitle: String, back: () -> Unit = ::showStart, build: (LinearLayout) -> Unit): Unit {
@@ -345,13 +381,16 @@ class InspectionModule(
         val card = Ui.card(activity)
         card.addView(Ui.section(activity, "Evidências fotográficas"))
         card.addView(Ui.value(activity, "${record.photos.size} foto(s) anexada(s)", Ui.TEXT), smallTop())
-        card.addView(Ui.button(activity, "Adicionar fotos ao achado", Ui.AMBER).apply { setOnClickListener { pickPhotosForRecord(index) } }, buttonLp())
+        val row = Ui.row(activity)
+        row.addView(Ui.button(activity, "Tirar foto", Ui.AMBER).apply { setOnClickListener { takePhotoForRecord(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(Ui.ghostButton(activity, "Galeria").apply { setOnClickListener { pickPhotosForRecord(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(8), 0, 0, 0) })
+        card.addView(row, buttonLp())
         if (record.photos.isNotEmpty()) {
             record.photos.forEachIndexed { photoIndex, _ ->
-                val row = Ui.row(activity)
-                row.addView(Ui.label(activity, "Foto ${photoIndex + 1}"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                row.addView(Ui.dangerButton(activity, "Remover").apply { setOnClickListener { removePhoto(index, photoIndex) } }, LinearLayout.LayoutParams(dp(110), ViewGroup.LayoutParams.WRAP_CONTENT))
-                card.addView(row, smallTop())
+                val photoRow = Ui.row(activity)
+                photoRow.addView(Ui.label(activity, "Foto ${photoIndex + 1}"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                photoRow.addView(Ui.dangerButton(activity, "Remover").apply { setOnClickListener { removePhoto(index, photoIndex) } }, LinearLayout.LayoutParams(dp(110), ViewGroup.LayoutParams.WRAP_CONTENT))
+                card.addView(photoRow, smallTop())
             }
         }
         return card
@@ -410,7 +449,10 @@ class InspectionModule(
         if (record.recommendation.isNotBlank()) card.addView(Ui.label(activity, "Ação: ${record.recommendation}"), buttonLp())
         if (record.deadline.isNotBlank()) card.addView(Ui.label(activity, "Prazo: ${record.deadline}"), smallTop())
         card.addView(Ui.label(activity, "Fotos: ${record.photos.size}"), smallTop())
-        card.addView(Ui.button(activity, if (record.photos.isEmpty()) "Adicionar fotos" else "Fotos (${record.photos.size})", Ui.AMBER).apply { setOnClickListener { pickPhotosForRecord(index) } }, buttonLp())
+        val photoRow = Ui.row(activity)
+        photoRow.addView(Ui.button(activity, "Tirar foto", Ui.AMBER).apply { setOnClickListener { takePhotoForRecord(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        photoRow.addView(Ui.ghostButton(activity, if (record.photos.isEmpty()) "Galeria" else "Fotos (${record.photos.size})").apply { setOnClickListener { pickPhotosForRecord(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(8), 0, 0, 0) })
+        card.addView(photoRow, buttonLp())
         val actions = Ui.row(activity)
         actions.addView(Ui.ghostButton(activity, "Ver detalhes").apply { setOnClickListener { showFindingDetail(index) } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         if (record.status != "Resolvido") {
@@ -571,7 +613,7 @@ class InspectionModule(
     private fun showHelpDialog(): Unit {
         AlertDialog.Builder(activity)
             .setTitle("Como usar")
-            .setMessage("1. Toque em Nova inspeção.\n2. Informe local e área.\n3. Use modelos rápidos ou adicione achados manualmente.\n4. Use os filtros para priorizar pendências.\n5. Anexe fotos direto no card ou no detalhe do achado.\n6. Gere o PDF ao final da ronda.")
+            .setMessage("1. Toque em Nova inspeção.\n2. Informe local e área.\n3. Adicione achados manualmente ou por modelos.\n4. Use Tirar foto no card do achado para abrir a câmera.\n5. Use Galeria para anexar imagens existentes.\n6. Gere o PDF ao final da ronda.")
             .setPositiveButton("Entendi", null)
             .show()
     }
