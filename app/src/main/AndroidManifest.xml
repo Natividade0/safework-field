@@ -9,7 +9,7 @@
         android:supportsRtl="true">
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.provider"
+            android:authorities="\${applicationId}.provider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
@@ -17,18 +17,10 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <activity
-            android:name=".SignatureActivity"
-            android:screenOrientation="landscape"
-            android:exported="false" />
-
-        <activity
-            android:name=".ClosePtActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".AprActivity"
-            android:exported="false" />
+        <activity android:name=".SignatureActivity" android:screenOrientation="landscape" android:exported="false" />
+        <activity android:name=".ClosePtActivity" android:exported="false" />
+        <activity android:name=".AprActivity" android:exported="false" />
+        <activity android:name=".InspectionActivity" android:exported="false" />
 
         <activity
             android:name=".MainActivity"
